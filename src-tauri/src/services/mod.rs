@@ -1,2 +1,2 @@
-// Services will be implemented in later phases.
-// This module stub is required for lib.rs compilation.
+pub mod github;
+pub mod rate_limiter;
