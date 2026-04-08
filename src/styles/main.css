@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand colours */
+  --color-primary: #3B82F6;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+
+  /* Surface colours */
+  --color-surface: #0F1117;
+  --color-surface-alt: #1A1D27;
+  --color-border: #2A2D3A;
+  --color-muted: #6B7280;
+
+  /* Typography */
+  --font-family-mono: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+}
+
+/* Global base styles */
+html, body {
+  background-color: var(--color-surface);
+  color: #F9FAFB;
+  font-family: system-ui, sans-serif;
+  height: 100%;
+  overflow: hidden;
+}
+
+#app {
+  height: 100%;
+}
+
+/* Monospace accent for code values */
+.font-mono {
+  font-family: var(--font-family-mono);
+}
