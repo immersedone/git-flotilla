@@ -42,6 +42,9 @@ fn main() {
             git_flotilla::commands::repos::list_repo_lists,
             git_flotilla::commands::repos::add_repos_to_list,
             git_flotilla::commands::repos::remove_repos_from_list,
+            git_flotilla::commands::repos::set_repo_tags,
+            git_flotilla::commands::repos::export_repo_list,
+            git_flotilla::commands::repos::import_repo_list,
             // Scanning
             git_flotilla::commands::scan::scan_repo,
             git_flotilla::commands::scan::scan_repo_list,
