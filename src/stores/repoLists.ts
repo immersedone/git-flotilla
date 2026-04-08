@@ -68,13 +68,25 @@ export const useRepoListsStore = defineStore('repoLists', () => {
   }
 
   async function addRepos(listId: string, repoIds: string[]) {
-    await addReposToList(listId, repoIds)
-    await loadLists()
+    error.value = null
+    try {
+      await addReposToList(listId, repoIds)
+      await loadLists()
+    } catch (e) {
+      error.value = String(e)
+      throw e
+    }
   }
 
   async function removeRepos(listId: string, repoIds: string[]) {
-    await removeReposFromList(listId, repoIds)
-    await loadLists()
+    error.value = null
+    try {
+      await removeReposFromList(listId, repoIds)
+      await loadLists()
+    } catch (e) {
+      error.value = String(e)
+      throw e
+    }
   }
 
   async function exportList(id: string): Promise<string> {

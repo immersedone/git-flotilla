@@ -6,7 +6,7 @@ use crate::{
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 
-const KEYCHAIN_SERVICE: &str = "git-flotilla";
+pub(crate) const KEYCHAIN_SERVICE: &str = "git-flotilla";
 
 const REQUIRED_GITHUB_SCOPES: &[&str] = &["repo", "workflow", "read:org"];
 

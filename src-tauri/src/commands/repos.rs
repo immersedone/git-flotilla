@@ -4,12 +4,11 @@ use crate::{
     models::{Repo, RepoList},
     services::github::{GitHubClient, GitHubRepo},
 };
+use crate::commands::auth::KEYCHAIN_SERVICE;
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use std::collections::HashSet;
-
-const KEYCHAIN_SERVICE: &str = "git-flotilla";
 
 // ── Private helpers ────────────────────────────────────────────────────────
 
