@@ -6,6 +6,7 @@ use crate::{
 };
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
+use sqlx::Row;
 use std::collections::HashSet;
 
 const KEYCHAIN_SERVICE: &str = "git-flotilla";
@@ -122,6 +123,18 @@ async fn get_list_by_id(pool: &sqlx::SqlitePool, id: &str) -> AppResult<RepoList
     row_to_list(pool, row).await
 }
 
+async fn fetch_repo_by_id(pool: &sqlx::SqlitePool, id: &str) -> AppResult<Repo> {
+    let row = sqlx::query_as::<_, RepoRow>(
+        "SELECT id, provider, owner, name, full_name, url, default_branch,
+                is_private, last_scanned_at, tags FROM repos WHERE id = ?",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("Repo not found: {id}")))?;
+    Ok(row.into_model())
+}
+
 // ── Repo commands ──────────────────────────────────────────────────────────
 
 /// Discover all repos accessible to the account and upsert into SQLite.
@@ -224,15 +237,7 @@ pub async fn list_repos(repo_list_id: Option<String>) -> AppResult<Vec<Repo>> {
 #[tauri::command]
 pub async fn get_repo(id: String) -> AppResult<Repo> {
     let pool = db::pool()?;
-    let row  = sqlx::query_as::<_, RepoRow>(
-        "SELECT id, provider, owner, name, full_name, url, default_branch,
-                is_private, last_scanned_at, tags FROM repos WHERE id = ?",
-    )
-    .bind(&id)
-    .fetch_optional(pool)
-    .await?
-    .ok_or_else(|| AppError::NotFound(format!("Repo not found: {id}")))?;
-    Ok(row.into_model())
+    fetch_repo_by_id(pool, &id).await
 }
 
 /// Update the tags JSON array for a repo.
@@ -240,12 +245,15 @@ pub async fn get_repo(id: String) -> AppResult<Repo> {
 pub async fn set_repo_tags(repo_id: String, tags: Vec<String>) -> AppResult<Repo> {
     let pool      = db::pool()?;
     let tags_json = serde_json::to_string(&tags).map_err(|e| AppError::InvalidInput(e.to_string()))?;
-    sqlx::query("UPDATE repos SET tags = ?, updated_at = datetime('now') WHERE id = ?")
+    let result = sqlx::query("UPDATE repos SET tags = ?, updated_at = datetime('now') WHERE id = ?")
         .bind(&tags_json)
         .bind(&repo_id)
         .execute(pool)
         .await?;
-    get_repo(repo_id).await
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound(format!("Repo not found: {repo_id}")));
+    }
+    fetch_repo_by_id(pool, &repo_id).await
 }
 
 // ── Repo list commands ─────────────────────────────────────────────────────
@@ -287,7 +295,7 @@ pub async fn update_repo_list(id: String, input: CreateRepoListInput) -> AppResu
     let patterns = serde_json::to_string(&input.exclude_patterns)
         .map_err(|e| AppError::InvalidInput(e.to_string()))?;
 
-    sqlx::query(
+    let result = sqlx::query(
         "UPDATE repo_lists
          SET name = ?, description = ?, parent_id = ?, exclude_patterns = ?, updated_at = datetime('now')
          WHERE id = ?",
@@ -300,6 +308,10 @@ pub async fn update_repo_list(id: String, input: CreateRepoListInput) -> AppResu
     .execute(pool)
     .await?;
 
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound(format!("Repo list not found: {id}")));
+    }
+
     get_list_by_id(pool, &id).await
 }
 
@@ -307,10 +319,13 @@ pub async fn update_repo_list(id: String, input: CreateRepoListInput) -> AppResu
 pub async fn delete_repo_list(id: String) -> AppResult<()> {
     let pool = db::pool()?;
     // repo_list_members cascade-deletes via FK
-    sqlx::query("DELETE FROM repo_lists WHERE id = ?")
+    let result = sqlx::query("DELETE FROM repo_lists WHERE id = ?")
         .bind(&id)
         .execute(pool)
         .await?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound(format!("Repo list not found: {id}")));
+    }
     Ok(())
 }
 
@@ -324,9 +339,33 @@ pub async fn list_repo_lists() -> AppResult<Vec<RepoList>> {
     .fetch_all(pool)
     .await?;
 
+    // Fetch all members in one query to avoid N+1
+    let all_members = sqlx::query("SELECT list_id, repo_id FROM repo_list_members ORDER BY list_id, added_at")
+        .fetch_all(pool)
+        .await?;
+
+    let mut members_by_list: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for member_row in all_members {
+        members_by_list
+            .entry(member_row.get::<String, _>("list_id"))
+            .or_default()
+            .push(member_row.get::<String, _>("repo_id"));
+    }
+
     let mut lists = Vec::new();
     for row in rows {
-        lists.push(row_to_list(pool, row).await?);
+        let repo_ids         = members_by_list.remove(&row.id).unwrap_or_default();
+        let exclude_patterns = serde_json::from_str(&row.exclude_patterns).unwrap_or_default();
+        lists.push(RepoList {
+            id:               row.id,
+            name:             row.name,
+            description:      row.description,
+            repo_ids,
+            parent_id:        row.parent_id,
+            exclude_patterns,
+            created_at:       row.created_at,
+            updated_at:       row.updated_at,
+        });
     }
     Ok(lists)
 }
