@@ -1,12 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getRateLimitStatus } from '@/services/settings'
+import type { RateLimitInfo } from '@/types/settings'
 
-export interface RateLimitInfo {
-  remaining: number
-  limit: number
-  resetEpoch: number
-}
+export type { RateLimitInfo }
 
 export const useSettingsStore = defineStore('settings', () => {
   const scanIntervalMinutes    = ref<number | null>(1440)

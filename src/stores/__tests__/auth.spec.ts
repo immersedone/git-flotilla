@@ -19,7 +19,7 @@ describe('auth store', () => {
 
   it('loadAccounts populates accounts', async () => {
     vi.mocked(authService.listAccounts).mockResolvedValue([
-      { id: 'github:octocat', provider: 'github', username: 'octocat', scopes: ['repo'], missingScopes: [], avatarUrl: null },
+      { id: 'github:octocat', provider: 'github' as const, username: 'octocat', scopes: ['repo'], missingScopes: [], avatarUrl: null },
     ])
     const store = useAuthStore()
     await store.loadAccounts()
@@ -29,7 +29,7 @@ describe('auth store', () => {
   })
 
   it('addAccountAction calls addAccount service and appends to accounts', async () => {
-    const newAccount = { id: 'github:octocat', provider: 'github', username: 'octocat', scopes: ['repo', 'workflow'], missingScopes: [], avatarUrl: null }
+    const newAccount = { id: 'github:octocat', provider: 'github' as const, username: 'octocat', scopes: ['repo', 'workflow'], missingScopes: [], avatarUrl: null }
     vi.mocked(authService.addAccount).mockResolvedValue(newAccount)
     const store = useAuthStore()
     await store.addAccountAction('github', 'ghp_test123')
@@ -39,7 +39,7 @@ describe('auth store', () => {
 
   it('removeAccountAction calls removeAccount and removes from list', async () => {
     vi.mocked(authService.listAccounts).mockResolvedValue([
-      { id: 'github:octocat', provider: 'github', username: 'octocat', scopes: [], missingScopes: [], avatarUrl: null },
+      { id: 'github:octocat', provider: 'github' as const, username: 'octocat', scopes: [], missingScopes: [], avatarUrl: null },
     ])
     vi.mocked(authService.removeAccount).mockResolvedValue(undefined)
     const store = useAuthStore()

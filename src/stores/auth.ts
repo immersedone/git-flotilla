@@ -24,15 +24,27 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function addAccountAction(provider: string, token: string) {
-    const account = await addAccount(provider, token)
-    accounts.value.push(account)
-    return account
+  async function addAccountAction(provider: 'github' | 'gitlab', token: string) {
+    error.value = null
+    try {
+      const account = await addAccount(provider, token)
+      accounts.value.push(account)
+      return account
+    } catch (e) {
+      error.value = String(e)
+      throw e
+    }
   }
 
   async function removeAccountAction(id: string) {
-    await removeAccount(id)
-    accounts.value = accounts.value.filter(a => a.id !== id)
+    error.value = null
+    try {
+      await removeAccount(id)
+      accounts.value = accounts.value.filter(a => a.id !== id)
+    } catch (e) {
+      error.value = String(e)
+      throw e
+    }
   }
 
   return {

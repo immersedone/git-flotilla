@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { RateLimitInfo } from '@/stores/settings'
+import type { RateLimitInfo } from '@/types/settings'
 
 export interface RateLimitStatus {
   github: RateLimitInfo | null
