@@ -25,3 +25,6 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/settings.json
+
+# Git worktrees
+.worktrees/
