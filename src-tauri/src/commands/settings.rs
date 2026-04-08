@@ -1,4 +1,5 @@
 use crate::error::{AppError, AppResult};
+use crate::models::RateLimitInfo;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -30,14 +31,6 @@ pub struct HealthScoreWeights {
 pub struct RateLimitStatus {
     pub github: Option<RateLimitInfo>,
     pub gitlab: Option<RateLimitInfo>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct RateLimitInfo {
-    pub remaining: u32,
-    pub limit: u32,
-    pub reset_epoch: u64,
 }
 
 #[tauri::command]

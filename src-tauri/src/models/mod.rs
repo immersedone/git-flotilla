@@ -112,3 +112,11 @@ pub struct OperationResult {
     pub error: Option<String>,
     pub diff: Option<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RateLimitInfo {
+    pub remaining: u32,
+    pub limit: u32,
+    pub reset_epoch: u64,
+}
