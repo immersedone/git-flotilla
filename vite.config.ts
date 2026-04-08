@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
-import path from 'path'
+import { resolve } from 'path'
 
 const host = process.env.TAURI_DEV_HOST
 
@@ -12,7 +12,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': resolve(__dirname, './src'),
     },
   },
   clearScreen: false,
@@ -26,5 +26,9 @@ export default defineConfig({
     watch: {
       ignored: ['**/src-tauri/**'],
     },
+  },
+  test: {
+    environment: 'happy-dom',
+    globals: true,
   },
 })
