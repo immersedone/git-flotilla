@@ -92,7 +92,6 @@ async function handleAddRepos() {
   actionError.value = null
   try {
     await listsStore.addRepos(listsStore.selectedListId, [...selectedToAdd.value])
-    await reposStore.loadRepos(listsStore.selectedListId)
     selectedToAdd.value = new Set()
     showAddRepos.value  = false
   } catch (e) {
@@ -105,7 +104,6 @@ async function handleRemoveFromList(repoId: string) {
   actionError.value = null
   try {
     await listsStore.removeRepos(listsStore.selectedListId, [repoId])
-    await reposStore.loadRepos(listsStore.selectedListId)
   } catch (e) {
     actionError.value = String(e)
   }
