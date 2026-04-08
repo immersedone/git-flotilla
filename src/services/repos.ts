@@ -44,7 +44,7 @@ export function removeReposFromList(listId: string, repoIds: string[]): Promise<
   return invoke('remove_repos_from_list', { listId, repoIds })
 }
 
-export function setRepoTags(repoId: string, tags: string[]): Promise<import('@/types/repo').Repo> {
+export function setRepoTags(repoId: string, tags: string[]): Promise<Repo> {
   return invoke('set_repo_tags', { repoId, tags })
 }
 
@@ -52,6 +52,6 @@ export function exportRepoList(id: string): Promise<string> {
   return invoke('export_repo_list', { id })
 }
 
-export function importRepoList(yaml: string): Promise<import('@/types/repo').RepoList> {
+export function importRepoList(yaml: string): Promise<RepoList> {
   return invoke('import_repo_list', { yaml })
 }

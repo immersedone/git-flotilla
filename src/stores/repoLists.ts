@@ -31,22 +31,40 @@ export const useRepoListsStore = defineStore('repoLists', () => {
   }
 
   async function createListAction(input: CreateRepoListInput) {
-    const list = await createRepoList(input)
-    lists.value.push(list)
-    return list
+    error.value = null
+    try {
+      const list = await createRepoList(input)
+      lists.value.push(list)
+      return list
+    } catch (e) {
+      error.value = String(e)
+      throw e
+    }
   }
 
   async function updateListAction(id: string, input: CreateRepoListInput) {
-    const updated = await updateRepoList(id, input)
-    const idx = lists.value.findIndex(l => l.id === id)
-    if (idx !== -1) lists.value[idx] = updated
-    return updated
+    error.value = null
+    try {
+      const updated = await updateRepoList(id, input)
+      const idx = lists.value.findIndex(l => l.id === id)
+      if (idx !== -1) lists.value[idx] = updated
+      return updated
+    } catch (e) {
+      error.value = String(e)
+      throw e
+    }
   }
 
   async function deleteListAction(id: string) {
-    await deleteRepoList(id)
-    lists.value = lists.value.filter(l => l.id !== id)
-    if (selectedListId.value === id) selectedListId.value = null
+    error.value = null
+    try {
+      await deleteRepoList(id)
+      lists.value = lists.value.filter(l => l.id !== id)
+      if (selectedListId.value === id) selectedListId.value = null
+    } catch (e) {
+      error.value = String(e)
+      throw e
+    }
   }
 
   async function addRepos(listId: string, repoIds: string[]) {

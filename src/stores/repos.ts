@@ -44,10 +44,16 @@ export const useReposStore = defineStore('repos', () => {
   }
 
   async function setRepoTagsAction(repoId: string, tags: string[]) {
-    const updated = await setRepoTags(repoId, tags)
-    const idx = repos.value.findIndex(r => r.id === repoId)
-    if (idx !== -1) repos.value[idx] = updated
-    return updated
+    error.value = null
+    try {
+      const updated = await setRepoTags(repoId, tags)
+      const idx = repos.value.findIndex(r => r.id === repoId)
+      if (idx !== -1) repos.value[idx] = updated
+      return updated
+    } catch (e) {
+      error.value = String(e)
+      throw e
+    }
   }
 
   return {
