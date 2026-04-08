@@ -26,16 +26,18 @@ pub struct HealthScoreWeights {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RateLimitStatus {
     pub github: Option<RateLimitInfo>,
     pub gitlab: Option<RateLimitInfo>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct RateLimitInfo {
     pub remaining: u32,
     pub limit: u32,
-    pub reset_at: String,
+    pub reset_epoch: u64,
 }
 
 #[tauri::command]
@@ -51,5 +53,8 @@ pub async fn save_settings(settings: AppSettings) -> AppResult<()> {
 
 #[tauri::command]
 pub async fn get_rate_limit_status() -> AppResult<RateLimitStatus> {
-    Err(AppError::Operation("not implemented".into()))
+    Ok(RateLimitStatus {
+        github: crate::services::rate_limiter::get_github(),
+        gitlab: None,
+    })
 }
