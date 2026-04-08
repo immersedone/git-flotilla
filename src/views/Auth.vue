@@ -47,11 +47,17 @@ async function handleAdd() {
   }
 }
 
+const removingId = ref<string | null>(null)
+
 async function handleRemove(id: string) {
+  if (removingId.value) return
+  removingId.value = id
   try {
     await authStore.removeAccountAction(id)
   } catch (e) {
     formError.value = String(e)
+  } finally {
+    removingId.value = null
   }
 }
 
@@ -91,12 +97,14 @@ const REQUIRED_SCOPES: Record<string, string[]> = {
               Missing scopes: {{ account.missingScopes.join(', ') }}
             </div>
           </div>
-          <Button variant="danger" size="sm" @click="handleRemove(account.id)">Remove</Button>
+          <Button variant="danger" size="sm" :disabled="removingId === account.id" @click="handleRemove(account.id)">Remove</Button>
         </div>
       </div>
     </section>
 
     <div v-else-if="authStore.isLoading" class="text-muted text-sm">Loading accounts…</div>
+
+    <div v-else class="text-muted text-sm">No accounts connected yet.</div>
 
     <!-- Add account form -->
     <section class="bg-surface-alt border border-border rounded-lg p-6 space-y-4">
