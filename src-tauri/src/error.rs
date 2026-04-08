@@ -68,5 +68,10 @@ impl From<anyhow::Error> for AppError {
     }
 }
 
+impl From<keyring::Error> for AppError {
+    fn from(e: keyring::Error) -> Self {
+        AppError::Keychain(e.to_string())
+    }
+}
 
 pub type AppResult<T> = Result<T, AppError>;
