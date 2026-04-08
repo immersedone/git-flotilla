@@ -4,7 +4,9 @@ export interface AccountInfo {
   id: string
   provider: string
   username: string
+  avatarUrl: string | null
   scopes: string[]
+  missingScopes: string[]
 }
 
 export function addAccount(provider: string, token: string): Promise<AccountInfo> {
