@@ -5,6 +5,7 @@ export interface CreateRepoListInput {
   name: string
   description: string
   parentId?: string
+  excludePatterns: string[]
 }
 
 export function discoverRepos(accountId: string): Promise<Repo[]> {
@@ -41,4 +42,16 @@ export function addReposToList(listId: string, repoIds: string[]): Promise<void>
 
 export function removeReposFromList(listId: string, repoIds: string[]): Promise<void> {
   return invoke('remove_repos_from_list', { listId, repoIds })
+}
+
+export function setRepoTags(repoId: string, tags: string[]): Promise<import('@/types/repo').Repo> {
+  return invoke('set_repo_tags', { repoId, tags })
+}
+
+export function exportRepoList(id: string): Promise<string> {
+  return invoke('export_repo_list', { id })
+}
+
+export function importRepoList(yaml: string): Promise<import('@/types/repo').RepoList> {
+  return invoke('import_repo_list', { yaml })
 }
