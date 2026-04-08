@@ -137,7 +137,10 @@ pub async fn discover_repos(account_id: String) -> AppResult<Vec<Repo>> {
     }
 
     // Fetch org repos (deduplicated)
-    let (orgs, _) = client.list_orgs().await?;
+    let (orgs, orgs_rl) = client.list_orgs().await?;
+    if let Some(rl) = orgs_rl {
+        crate::services::rate_limiter::update_github(rl);
+    }
     let mut seen: HashSet<String> = HashSet::new();
     let mut all_gh: Vec<GitHubRepo> = Vec::new();
 
@@ -147,7 +150,10 @@ pub async fn discover_repos(account_id: String) -> AppResult<Vec<Repo>> {
         }
     }
     for org in &orgs {
-        let (org_repos, _) = client.list_org_repos(&org.login).await?;
+        let (org_repos, org_rl) = client.list_org_repos(&org.login).await?;
+        if let Some(rl) = org_rl {
+            crate::services::rate_limiter::update_github(rl);
+        }
         for r in org_repos {
             if seen.insert(r.full_name.clone()) {
                 all_gh.push(r);
