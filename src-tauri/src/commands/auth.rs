@@ -83,7 +83,7 @@ pub async fn add_account(provider: String, token: String) -> AppResult<AccountIn
         .map_err(AppError::from)?;
 
     // Upsert account record (no token) into SQLite
-    let pool = db::pool();
+    let pool = db::pool()?;
     sqlx::query(
         r#"
         INSERT INTO accounts (id, provider, username, avatar_url)
@@ -102,13 +102,16 @@ pub async fn add_account(provider: String, token: String) -> AppResult<AccountIn
     .await?;
 
     // Audit log entry
-    sqlx::query(
+    if let Err(e) = sqlx::query(
         "INSERT INTO audit_log (action_type, repo_ids, outcome, detail) VALUES (?, '[]', 'success', ?)",
     )
     .bind("account_added")
     .bind(&info.id)
     .execute(pool)
-    .await?;
+    .await
+    {
+        tracing::warn!("Failed to write audit log for account_added {}: {e}", info.id);
+    }
 
     tracing::info!("Account added: {}", info.id);
     Ok(info)
@@ -122,19 +125,22 @@ pub async fn remove_account(id: String) -> AppResult<()> {
         let _ = entry.delete_credential();
     }
 
-    let pool = db::pool();
+    let pool = db::pool()?;
     sqlx::query("DELETE FROM accounts WHERE id = ?")
         .bind(&id)
         .execute(pool)
         .await?;
 
-    sqlx::query(
+    if let Err(e) = sqlx::query(
         "INSERT INTO audit_log (action_type, repo_ids, outcome, detail) VALUES (?, '[]', 'success', ?)",
     )
     .bind("account_removed")
     .bind(&id)
     .execute(pool)
-    .await?;
+    .await
+    {
+        tracing::warn!("Failed to write audit log for account_removed {}: {e}", id);
+    }
 
     tracing::info!("Account removed: {id}");
     Ok(())
@@ -143,7 +149,7 @@ pub async fn remove_account(id: String) -> AppResult<()> {
 /// List all accounts from SQLite. Filters out any whose keychain entry is missing.
 #[tauri::command]
 pub async fn list_accounts() -> AppResult<Vec<AccountInfo>> {
-    let pool = db::pool();
+    let pool = db::pool()?;
 
     #[derive(sqlx::FromRow)]
     struct Row {
