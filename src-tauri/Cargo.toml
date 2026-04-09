@@ -1,7 +1,8 @@
 [package]
-name    = "git-flotilla"
-version = "0.1.0"
-edition = "2021"
+name        = "git-flotilla"
+version     = "0.1.0"
+edition     = "2021"
+default-run = "git-flotilla"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
