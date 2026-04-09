@@ -1,3 +1,5 @@
+pub mod seed;
+
 use sqlx::SqlitePool;
 use std::sync::OnceLock;
 use tauri::{AppHandle, Manager};
@@ -29,6 +31,11 @@ pub async fn init(app: &AppHandle) -> Result<(), sqlx::Error> {
 
     // Run embedded migrations
     sqlx::migrate!("./src/db/migrations").run(&pool).await?;
+
+    // Seed demo data on first run (empty DB only)
+    if let Err(e) = seed::seed_if_empty(&pool).await {
+        tracing::warn!("Failed to seed demo data: {e}");
+    }
 
     DB_POOL.set(pool).map_err(|_| sqlx::Error::PoolTimedOut)?;
 
