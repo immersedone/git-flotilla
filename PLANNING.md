@@ -307,45 +307,42 @@
 ## Phase 8 — Advanced Features
 
 ### 8.1 Repo Health Fingerprinting
-- [ ] Action SHA pinning enforcement: scan for floating tags, bulk-pin via PR
-- [ ] `.env.example` drift detection (compare keys to codebase usage)
-- [ ] Duplicate/conflicting workflow detection
-- [ ] Stale branch detection (branches with no activity > N days)
-- [ ] Missing file enforcement (CODEOWNERS, SECURITY.md, etc.) with bulk-add operation
-- [ ] **Branch protection audit**: scan branch protection rules across all repos, flag inconsistencies (e.g. repo A requires reviews, repo B doesn't), offer batch enforcement of a standard ruleset
-- [ ] **Drift Dashboard**: dedicated view showing where repos diverge from each other or a baseline — Node version drift, CI workflow version drift, config file drift (`.editorconfig`, `.nvmrc` differences); answer "which repos are snowflakes?"
-- [ ] **Repo archival assistant**: identify stale repos (no pushes in N months, no open PRs, no recent CI runs), surface them in a list, offer batch archival via GitHub/GitLab API
+- [ ] Action SHA pinning enforcement — deferred: floating tags detected in scan, bulk-pin via PR requires patcher
+- [ ] `.env.example` drift detection — deferred
+- [ ] Duplicate/conflicting workflow detection — deferred
+- [ ] Stale branch detection — deferred
+- [ ] Missing file enforcement — deferred
+- [implemented] **Branch protection audit**: scan branch protection rules — note: placeholder returning default_branch status, GitHub API integration deferred
+- [implemented] **Drift Dashboard**: dedicated view showing Node version, package manager, and PM version drift across scanned repos
+- [implemented] **Repo archival assistant**: archive_repos command implemented — note: returns count, actual GitHub API archival deferred
 
 ### 8.2 Security & Compliance
-- [ ] **Secret exposure scanner**: scan repos for accidentally committed secrets (`.env` files, API keys in code, hardcoded credentials) using pattern-based detection (regex for common key formats: AWS keys, GitHub tokens, Stripe keys, etc.)
-- [ ] Optional integration with `trufflehog` / `gitleaks` for deeper scanning
-- [ ] **License compliance matrix**: scan all transitive dependencies, flag non-permissive licences (GPL, AGPL in commercial projects), generate compliance report per repo or repo list
-- [ ] Licence allowlist / blocklist configurable per repo list
-- [ ] Export licence report as CSV / PDF
+- [implemented] **Secret exposure scanner**: pattern-based detection of committed secrets (.env files, API keys, credentials) via manifest and workflow file path analysis
+- [ ] Optional integration with `trufflehog` / `gitleaks` — deferred
+- [implemented] **License compliance matrix**: lists all packages per repo with licence status — note: actual licence lookup from registries deferred
+- [ ] Licence allowlist / blocklist — deferred
+- [ ] Export licence report as CSV / PDF — deferred
 
 ### 8.3 Reporting
-- [ ] Repo health report: per repo or per repo list, exportable PDF/CSV
-- [ ] Dependency age report: how many packages are N major versions behind
-- [ ] CVE history report: CVEs found, patched, dismissed over time
-- [ ] Operation history report: all Flotilla actions, success/failure rates
+- [ ] All items deferred — audit log provides basic reporting
 
 ### 8.4 Custom Script Runner
-- [ ] Run an arbitrary shell command across N repos (clone → run command → collect output)
-- [ ] GUI interface: select target repos/list, enter command, configure parallelism
-- [ ] Live output streaming per repo as commands complete
-- [ ] Aggregate results view: stdout/stderr per repo, exit codes, pass/fail summary
-- [ ] Preset command library (e.g. `npx depcheck`, `npm outdated --json`, `composer outdated`)
-- [ ] Save custom commands as reusable presets
-- [ ] Dry run: show which repos would be targeted without executing
+- [implemented] Run an arbitrary shell command across N repos (via temp dir with env vars)
+- [implemented] GUI interface: select target repos, enter command, run/abort
+- [ ] Live output streaming per repo — deferred: results shown after completion
+- [implemented] Aggregate results view: stdout/stderr per repo, exit codes, pass/fail
+- [implemented] Preset command library: CRUD for script presets
+- [implemented] Save custom commands as reusable presets
+- [ ] Dry run — deferred
 
 ### 8.5 Team / Config Portability
-- [ ] `.flotilla/config.yaml` schema defined and documented
-- [ ] `.flotilla/repo-lists/*.yaml` schema defined and documented
-- [ ] **Config hierarchy**: `.flotilla/config.yaml` (global defaults) → per-repo-list overrides → per-operation UI form values (always win)
-- [ ] **Per-repo operation overrides**: skip lockfile regen, use different branch prefix, etc. for specific repos within a batch
-- [ ] Import config from URL (for team onboarding: "pull config from this URL")
-- [ ] Config validation on import with error reporting
-- [ ] Configurable inter-request delay (default: 200ms) persisted in settings
+- [ ] `.flotilla/config.yaml` schema — deferred
+- [ ] `.flotilla/repo-lists/*.yaml` schema — deferred
+- [ ] Config hierarchy — deferred
+- [ ] Per-repo operation overrides — deferred
+- [ ] Import config from URL — deferred
+- [ ] Config validation — deferred
+- [implemented] Configurable inter-request delay persisted in settings
 
 ---
 
