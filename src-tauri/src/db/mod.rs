@@ -4,8 +4,10 @@ use tauri::{AppHandle, Manager};
 
 static DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
 
-pub fn pool() -> &'static SqlitePool {
-    DB_POOL.get().expect("DB pool not initialised — call db::init() first")
+pub fn pool() -> crate::error::AppResult<&'static SqlitePool> {
+    DB_POOL.get().ok_or_else(|| {
+        crate::error::AppError::Database("Database not ready — please wait a moment and try again".into())
+    })
 }
 
 pub async fn init(app: &AppHandle) -> Result<(), sqlx::Error> {

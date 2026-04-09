@@ -46,36 +46,37 @@
 ## Phase 2 — Authentication & Repo Management
 
 ### 2.1 Authentication
-- [ ] GitHub Personal Access Token input + validation
+
+- [implemented] GitHub Personal Access Token input + validation
 - [ ] GitHub OAuth App flow (optional, for teams)
 - [ ] GitLab Personal Access Token input + validation
-- [ ] OS keychain storage via `keyring` crate
-- [ ] Token scope validation on save (warn on missing scopes)
-- [ ] Multi-account support (multiple GitHub/GitLab accounts)
-- [ ] Auth status indicator in top bar
-- [ ] Token revocation / removal
+- [implemented] OS keychain storage via `keyring` crate
+- [implemented] Token scope validation on save (warn on missing scopes)
+- [ ] Multi-account support (multiple GitHub/GitLab accounts) — note: model supports it, UI shows first account
+- [implemented] Auth status indicator in top bar
+- [implemented] Token revocation / removal
 
 ### 2.2 Repo Discovery
-- [ ] List all repos accessible to authenticated GitHub user
-- [ ] List all repos in authenticated GitHub orgs
+- [implemented] List all repos accessible to authenticated GitHub user
+- [implemented] List all repos in authenticated GitHub orgs
 - [ ] List all repos accessible to authenticated GitLab user
 - [ ] List all repos in authenticated GitLab groups
-- [ ] Pagination handling for large orgs (>100 repos)
-- [ ] Store discovered repos in SQLite
-- [ ] Display repos in a searchable, filterable table
+- [implemented] Pagination handling for large orgs (>100 repos)
+- [implemented] Store discovered repos in SQLite
+- [implemented] Display repos in a searchable, filterable table
 
 ### 2.3 Repo Lists
-- [ ] Create / rename / delete repo list
-- [ ] Add repos to list (multi-select from discovered repos)
-- [ ] Remove repos from list
-- [ ] Nested lists (parent → child hierarchy, max 3 levels)
-- [ ] Tag repos with arbitrary labels
-- [ ] Filter repo discovery table by tags
-- [ ] **Exclusion rules**: support org-level (`ORG/*`) and repo-level exclusion patterns on repo lists
-- [ ] **Auto-exclude**: automatically mark repos without relevant manifests as excluded (with reason), respected by scanner and batch operations
-- [ ] Export repo list as YAML
-- [ ] Import repo list from YAML
-- [ ] Store repo lists in `.flotilla/repo-lists/*.yaml`
+- [implemented] Create / rename / delete repo list
+- [implemented] Add repos to list (multi-select from discovered repos)
+- [implemented] Remove repos from list
+- [ ] Nested lists (parent → child hierarchy, max 3 levels) — note: data model supports it, UI shows root lists only
+- [implemented] Tag repos with arbitrary labels
+- [ ] Filter repo discovery table by tags — note: text search covers name/tags but no dedicated tag filter
+- [implemented] **Exclusion rules**: support org-level (`ORG/*`) and repo-level exclusion patterns on repo lists (data model)
+- [ ] **Auto-exclude**: automatically mark repos without relevant manifests as excluded (with reason), respected by scanner and batch operations — requires scanner
+- [implemented] Export repo list as YAML
+- [implemented] Import repo list from YAML
+- [ ] Store repo lists in `.flotilla/repo-lists/*.yaml` — currently SQLite only; YAML is manual export
 - [ ] Repo list sidebar tree with expand/collapse
 
 ---
