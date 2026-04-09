@@ -1,14 +1,19 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import {
   getRateLimitStatus,
   getSettings,
   saveSettings,
   listAuditLog,
+  listNotifications,
+  markNotificationRead as markNotificationReadService,
+  clearNotifications as clearNotificationsService,
 } from '@/services/settings'
+import type { AppNotification } from '@/services/settings'
 import type { RateLimitInfo } from '@/types/settings'
 
 export type { RateLimitInfo }
+export type { AppNotification }
 
 export const useSettingsStore = defineStore('settings', () => {
   const scanIntervalMinutes    = ref<number | null>(1440)
@@ -16,8 +21,12 @@ export const useSettingsStore = defineStore('settings', () => {
   const parallelWorkers        = ref(5)
   const requestDelayMs         = ref(200)
   const darkMode               = ref(true)
+  const theme                  = ref<'dark' | 'light'>('dark')
   const rateLimitGithub        = ref<RateLimitInfo | null>(null)
   const rateLimitGitlab        = ref<RateLimitInfo | null>(null)
+
+  const notifications          = ref<AppNotification[]>([])
+  const unreadCount            = computed(() => notifications.value.filter(n => !n.isRead).length)
 
   const settings = ref<Record<string, string>>({})
   const auditLog = ref<Array<Record<string, unknown>>>([])
@@ -79,14 +88,71 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  // ── Notifications ─────────────────────────────────────────────────────
+
+  async function loadNotifications() {
+    try {
+      notifications.value = await listNotifications()
+    } catch {
+      // non-fatal
+    }
+  }
+
+  async function markRead(id: string) {
+    try {
+      await markNotificationReadService(id)
+      const n = notifications.value.find(x => x.id === id)
+      if (n) n.isRead = true
+    } catch {
+      // non-fatal
+    }
+  }
+
+  async function clearAllNotifications() {
+    try {
+      await clearNotificationsService()
+      notifications.value = []
+    } catch {
+      // non-fatal
+    }
+  }
+
+  // ── Theme ─────────────────────────────────────────────────────────────
+
+  function initTheme() {
+    const stored = localStorage.getItem('flotilla-theme')
+    if (stored === 'light' || stored === 'dark') {
+      theme.value = stored
+    }
+    applyThemeClass()
+  }
+
+  function applyThemeClass() {
+    const html = document.documentElement
+    html.classList.remove('dark', 'light')
+    html.classList.add(theme.value)
+  }
+
+  function toggleTheme() {
+    theme.value = theme.value === 'dark' ? 'light' : 'dark'
+  }
+
+  watch(theme, (val) => {
+    localStorage.setItem('flotilla-theme', val)
+    applyThemeClass()
+  })
+
   return {
     scanIntervalMinutes,
     cvePollIntervalMinutes,
     parallelWorkers,
     requestDelayMs,
     darkMode,
+    theme,
     rateLimitGithub,
     rateLimitGitlab,
+    notifications,
+    unreadCount,
     settings,
     auditLog,
     isLoading,
@@ -95,5 +161,10 @@ export const useSettingsStore = defineStore('settings', () => {
     loadSettings,
     saveSettingsAction,
     loadAuditLog,
+    loadNotifications,
+    markRead,
+    clearAllNotifications,
+    initTheme,
+    toggleTheme,
   }
 })

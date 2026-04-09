@@ -21,7 +21,12 @@ fn main() {
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = git_flotilla::db::init(&app_handle).await {
                     tracing::error!("DB initialisation failed: {e}");
+                    return;
                 }
+
+                // Start background scheduler after DB is ready
+                tracing::info!("Starting background scheduler");
+                git_flotilla::services::scheduler::start_scheduler();
             });
             Ok(())
         })
@@ -45,6 +50,7 @@ fn main() {
             git_flotilla::commands::repos::set_repo_tags,
             git_flotilla::commands::repos::export_repo_list,
             git_flotilla::commands::repos::import_repo_list,
+            git_flotilla::commands::repos::get_repo_clusters,
             // Scanning
             git_flotilla::commands::scan::scan_repo,
             git_flotilla::commands::scan::scan_repo_list,
@@ -94,6 +100,16 @@ fn main() {
             git_flotilla::commands::settings::save_settings,
             git_flotilla::commands::settings::get_rate_limit_status,
             git_flotilla::commands::settings::list_audit_log,
+            // Notifications
+            git_flotilla::commands::settings::list_notifications,
+            git_flotilla::commands::settings::mark_notification_read,
+            git_flotilla::commands::settings::clear_notifications,
+            // Reports / Config
+            git_flotilla::commands::settings::export_audit_log_csv,
+            git_flotilla::commands::settings::export_health_report_csv,
+            git_flotilla::commands::settings::export_cve_report_csv,
+            git_flotilla::commands::settings::export_config,
+            git_flotilla::commands::settings::import_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Git Flotilla");
