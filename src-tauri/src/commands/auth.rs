@@ -14,11 +14,11 @@ const REQUIRED_GITHUB_SCOPES: &[&str] = &["repo", "workflow", "read:org"];
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountInfo {
-    pub id:             String,   // "github:{username}"
-    pub provider:       String,
-    pub username:       String,
-    pub avatar_url:     Option<String>,
-    pub scopes:         Vec<String>,
+    pub id: String, // "github:{username}"
+    pub provider: String,
+    pub username: String,
+    pub avatar_url: Option<String>,
+    pub scopes: Vec<String>,
     /// Required scopes that are absent — warning, not error.
     pub missing_scopes: Vec<String>,
 }
@@ -63,10 +63,10 @@ pub async fn validate_token(provider: String, token: String) -> AppResult<Accoun
     let missing_scopes = check_missing_scopes(&provider, &scopes);
 
     Ok(AccountInfo {
-        id:             account_id(&provider, &user.login),
+        id: account_id(&provider, &user.login),
         provider,
-        username:       user.login,
-        avatar_url:     user.avatar_url,
+        username: user.login,
+        avatar_url: user.avatar_url,
         scopes,
         missing_scopes,
     })
@@ -153,9 +153,9 @@ pub async fn list_accounts() -> AppResult<Vec<AccountInfo>> {
 
     #[derive(sqlx::FromRow)]
     struct Row {
-        id:         String,
-        provider:   String,
-        username:   String,
+        id: String,
+        provider: String,
+        username: String,
         avatar_url: Option<String>,
     }
 
@@ -169,11 +169,11 @@ pub async fn list_accounts() -> AppResult<Vec<AccountInfo>> {
     for row in rows {
         match keychain_entry(&row.id).and_then(|e| e.get_password().map_err(AppError::from)) {
             Ok(_) => accounts.push(AccountInfo {
-                id:             row.id,
-                provider:       row.provider,
-                username:       row.username,
-                avatar_url:     row.avatar_url,
-                scopes:         vec![],          // not re-validated on list
+                id: row.id,
+                provider: row.provider,
+                username: row.username,
+                avatar_url: row.avatar_url,
+                scopes: vec![], // not re-validated on list
                 missing_scopes: vec![],
             }),
             Err(_) => {
@@ -199,12 +199,16 @@ mod tests {
     #[test]
     fn account_id_format() {
         assert_eq!(account_id("github", "octocat"), "github:octocat");
-        assert_eq!(account_id("gitlab", "alice"),   "gitlab:alice");
+        assert_eq!(account_id("gitlab", "alice"), "gitlab:alice");
     }
 
     #[test]
     fn missing_scopes_all_present() {
-        let scopes = vec!["repo".to_string(), "workflow".to_string(), "read:org".to_string()];
+        let scopes = vec![
+            "repo".to_string(),
+            "workflow".to_string(),
+            "read:org".to_string(),
+        ];
         assert!(check_missing_scopes("github", &scopes).is_empty());
     }
 

@@ -1,10 +1,10 @@
+use crate::commands::auth::KEYCHAIN_SERVICE;
 use crate::{
     db,
     error::{AppError, AppResult},
     models::{Repo, RepoList},
     services::github::{GitHubClient, GitHubRepo},
 };
-use crate::commands::auth::KEYCHAIN_SERVICE;
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
@@ -21,71 +21,79 @@ fn get_token(account_id: &str) -> AppResult<String> {
 
 fn gh_repo_to_model(r: &GitHubRepo) -> Repo {
     Repo {
-        id:              format!("github:{}", r.full_name),
-        provider:        "github".to_string(),
-        owner:           r.owner.login.clone(),
-        name:            r.name.clone(),
-        full_name:       r.full_name.clone(),
-        url:             r.html_url.clone(),
-        default_branch:  r.default_branch.clone(),
-        is_private:      r.private,
+        id: format!("github:{}", r.full_name),
+        provider: "github".to_string(),
+        owner: r.owner.login.clone(),
+        name: r.name.clone(),
+        full_name: r.full_name.clone(),
+        url: r.html_url.clone(),
+        default_branch: r.default_branch.clone(),
+        is_private: r.private,
         last_scanned_at: None,
-        tags:            vec![],
+        tags: vec![],
     }
 }
 
 fn gen_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    format!("{:x}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos())
+    format!(
+        "{:x}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    )
 }
 
 // ── Row types for runtime sqlx queries ────────────────────────────────────
 
 #[derive(sqlx::FromRow)]
 struct RepoRow {
-    id:              String,
-    provider:        String,
-    owner:           String,
-    name:            String,
-    full_name:       String,
-    url:             String,
-    default_branch:  String,
-    is_private:      i64,
+    id: String,
+    provider: String,
+    owner: String,
+    name: String,
+    full_name: String,
+    url: String,
+    default_branch: String,
+    is_private: i64,
     last_scanned_at: Option<String>,
-    tags:            String,
+    tags: String,
 }
 
 impl RepoRow {
     fn into_model(self) -> Repo {
         Repo {
-            id:              self.id,
-            provider:        self.provider,
-            owner:           self.owner,
-            name:            self.name,
-            full_name:       self.full_name,
-            url:             self.url,
-            default_branch:  self.default_branch,
-            is_private:      self.is_private != 0,
+            id: self.id,
+            provider: self.provider,
+            owner: self.owner,
+            name: self.name,
+            full_name: self.full_name,
+            url: self.url,
+            default_branch: self.default_branch,
+            is_private: self.is_private != 0,
             last_scanned_at: self.last_scanned_at,
-            tags:            serde_json::from_str(&self.tags).unwrap_or_default(),
+            tags: serde_json::from_str(&self.tags).unwrap_or_default(),
         }
     }
 }
 
 #[derive(sqlx::FromRow)]
 struct RepoListRow {
-    id:               String,
-    name:             String,
-    description:      String,
-    parent_id:        Option<String>,
+    id: String,
+    name: String,
+    description: String,
+    parent_id: Option<String>,
     exclude_patterns: String,
-    created_at:       String,
-    updated_at:       String,
+    created_at: String,
+    updated_at: String,
 }
 
 async fn fetch_list_repo_ids(pool: &sqlx::SqlitePool, list_id: &str) -> AppResult<Vec<String>> {
     #[derive(sqlx::FromRow)]
-    struct IdRow { repo_id: String }
+    struct IdRow {
+        repo_id: String,
+    }
     let rows = sqlx::query_as::<_, IdRow>(
         "SELECT repo_id FROM repo_list_members WHERE list_id = ? ORDER BY added_at",
     )
@@ -96,17 +104,17 @@ async fn fetch_list_repo_ids(pool: &sqlx::SqlitePool, list_id: &str) -> AppResul
 }
 
 async fn row_to_list(pool: &sqlx::SqlitePool, row: RepoListRow) -> AppResult<RepoList> {
-    let repo_ids         = fetch_list_repo_ids(pool, &row.id).await?;
+    let repo_ids = fetch_list_repo_ids(pool, &row.id).await?;
     let exclude_patterns = serde_json::from_str(&row.exclude_patterns).unwrap_or_default();
     Ok(RepoList {
-        id:               row.id,
-        name:             row.name,
-        description:      row.description,
+        id: row.id,
+        name: row.name,
+        description: row.description,
         repo_ids,
-        parent_id:        row.parent_id,
+        parent_id: row.parent_id,
         exclude_patterns,
-        created_at:       row.created_at,
-        updated_at:       row.updated_at,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
     })
 }
 
@@ -139,7 +147,7 @@ async fn fetch_repo_by_id(pool: &sqlx::SqlitePool, id: &str) -> AppResult<Repo> 
 /// Discover all repos accessible to the account and upsert into SQLite.
 #[tauri::command]
 pub async fn discover_repos(account_id: String) -> AppResult<Vec<Repo>> {
-    let token  = get_token(&account_id)?;
+    let token = get_token(&account_id)?;
     let client = GitHubClient::new(&token);
 
     // Fetch user repos
@@ -242,13 +250,15 @@ pub async fn get_repo(id: String) -> AppResult<Repo> {
 /// Update the tags JSON array for a repo.
 #[tauri::command]
 pub async fn set_repo_tags(repo_id: String, tags: Vec<String>) -> AppResult<Repo> {
-    let pool      = db::pool()?;
-    let tags_json = serde_json::to_string(&tags).map_err(|e| AppError::InvalidInput(e.to_string()))?;
-    let result = sqlx::query("UPDATE repos SET tags = ?, updated_at = datetime('now') WHERE id = ?")
-        .bind(&tags_json)
-        .bind(&repo_id)
-        .execute(pool)
-        .await?;
+    let pool = db::pool()?;
+    let tags_json =
+        serde_json::to_string(&tags).map_err(|e| AppError::InvalidInput(e.to_string()))?;
+    let result =
+        sqlx::query("UPDATE repos SET tags = ?, updated_at = datetime('now') WHERE id = ?")
+            .bind(&tags_json)
+            .bind(&repo_id)
+            .execute(pool)
+            .await?;
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound(format!("Repo not found: {repo_id}")));
     }
@@ -260,16 +270,16 @@ pub async fn set_repo_tags(repo_id: String, tags: Vec<String>) -> AppResult<Repo
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateRepoListInput {
-    pub name:             String,
-    pub description:      String,
-    pub parent_id:        Option<String>,
+    pub name: String,
+    pub description: String,
+    pub parent_id: Option<String>,
     pub exclude_patterns: Vec<String>,
 }
 
 #[tauri::command]
 pub async fn create_repo_list(input: CreateRepoListInput) -> AppResult<RepoList> {
-    let pool     = db::pool()?;
-    let id       = gen_id();
+    let pool = db::pool()?;
+    let id = gen_id();
     let patterns = serde_json::to_string(&input.exclude_patterns)
         .map_err(|e| AppError::InvalidInput(e.to_string()))?;
 
@@ -290,7 +300,7 @@ pub async fn create_repo_list(input: CreateRepoListInput) -> AppResult<RepoList>
 
 #[tauri::command]
 pub async fn update_repo_list(id: String, input: CreateRepoListInput) -> AppResult<RepoList> {
-    let pool     = db::pool()?;
+    let pool = db::pool()?;
     let patterns = serde_json::to_string(&input.exclude_patterns)
         .map_err(|e| AppError::InvalidInput(e.to_string()))?;
 
@@ -339,11 +349,13 @@ pub async fn list_repo_lists() -> AppResult<Vec<RepoList>> {
     .await?;
 
     // Fetch all members in one query to avoid N+1
-    let all_members = sqlx::query("SELECT list_id, repo_id FROM repo_list_members ORDER BY list_id, added_at")
-        .fetch_all(pool)
-        .await?;
+    let all_members =
+        sqlx::query("SELECT list_id, repo_id FROM repo_list_members ORDER BY list_id, added_at")
+            .fetch_all(pool)
+            .await?;
 
-    let mut members_by_list: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut members_by_list: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
     for member_row in all_members {
         members_by_list
             .entry(member_row.get::<String, _>("list_id"))
@@ -353,17 +365,17 @@ pub async fn list_repo_lists() -> AppResult<Vec<RepoList>> {
 
     let mut lists = Vec::new();
     for row in rows {
-        let repo_ids         = members_by_list.remove(&row.id).unwrap_or_default();
+        let repo_ids = members_by_list.remove(&row.id).unwrap_or_default();
         let exclude_patterns = serde_json::from_str(&row.exclude_patterns).unwrap_or_default();
         lists.push(RepoList {
-            id:               row.id,
-            name:             row.name,
-            description:      row.description,
+            id: row.id,
+            name: row.name,
+            description: row.description,
             repo_ids,
-            parent_id:        row.parent_id,
+            parent_id: row.parent_id,
             exclude_patterns,
-            created_at:       row.created_at,
-            updated_at:       row.updated_at,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
         });
     }
     Ok(lists)
@@ -373,13 +385,11 @@ pub async fn list_repo_lists() -> AppResult<Vec<RepoList>> {
 pub async fn add_repos_to_list(list_id: String, repo_ids: Vec<String>) -> AppResult<()> {
     let pool = db::pool()?;
     for repo_id in &repo_ids {
-        sqlx::query(
-            "INSERT OR IGNORE INTO repo_list_members (list_id, repo_id) VALUES (?, ?)",
-        )
-        .bind(&list_id)
-        .bind(repo_id)
-        .execute(pool)
-        .await?;
+        sqlx::query("INSERT OR IGNORE INTO repo_list_members (list_id, repo_id) VALUES (?, ?)")
+            .bind(&list_id)
+            .bind(repo_id)
+            .execute(pool)
+            .await?;
     }
     Ok(())
 }
@@ -388,13 +398,11 @@ pub async fn add_repos_to_list(list_id: String, repo_ids: Vec<String>) -> AppRes
 pub async fn remove_repos_from_list(list_id: String, repo_ids: Vec<String>) -> AppResult<()> {
     let pool = db::pool()?;
     for repo_id in &repo_ids {
-        sqlx::query(
-            "DELETE FROM repo_list_members WHERE list_id = ? AND repo_id = ?",
-        )
-        .bind(&list_id)
-        .bind(repo_id)
-        .execute(pool)
-        .await?;
+        sqlx::query("DELETE FROM repo_list_members WHERE list_id = ? AND repo_id = ?")
+            .bind(&list_id)
+            .bind(repo_id)
+            .execute(pool)
+            .await?;
     }
     Ok(())
 }
@@ -404,12 +412,12 @@ pub async fn remove_repos_from_list(list_id: String, repo_ids: Vec<String>) -> A
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RepoListYaml {
-    id:               String,
-    name:             String,
-    description:      String,
-    parent_id:        Option<String>,
+    id: String,
+    name: String,
+    description: String,
+    parent_id: Option<String>,
     exclude_patterns: Vec<String>,
-    repo_ids:         Vec<String>,
+    repo_ids: Vec<String>,
 }
 
 /// Export a repo list as a YAML string (frontend handles file-save dialog).
@@ -418,12 +426,12 @@ pub async fn export_repo_list(id: String) -> AppResult<String> {
     let pool = db::pool()?;
     let list = get_list_by_id(pool, &id).await?;
     let export = RepoListYaml {
-        id:               list.id,
-        name:             list.name,
-        description:      list.description,
-        parent_id:        list.parent_id,
+        id: list.id,
+        name: list.name,
+        description: list.description,
+        parent_id: list.parent_id,
         exclude_patterns: list.exclude_patterns,
-        repo_ids:         list.repo_ids,
+        repo_ids: list.repo_ids,
     };
     serde_yaml_ng::to_string(&export)
         .map_err(|e| AppError::Operation(format!("YAML serialisation failed: {e}")))
@@ -435,7 +443,7 @@ pub async fn import_repo_list(yaml: String) -> AppResult<RepoList> {
     let parsed: RepoListYaml = serde_yaml_ng::from_str(&yaml)
         .map_err(|e| AppError::InvalidInput(format!("Invalid YAML: {e}")))?;
 
-    let pool     = db::pool()?;
+    let pool = db::pool()?;
     let patterns = serde_json::to_string(&parsed.exclude_patterns)
         .map_err(|e| AppError::InvalidInput(e.to_string()))?;
 
@@ -460,19 +468,19 @@ pub async fn import_repo_list(yaml: String) -> AppResult<RepoList> {
     // Only add members whose repo row exists
     for repo_id in &parsed.repo_ids {
         #[derive(sqlx::FromRow)]
-        struct CountRow { count: i64 }
+        struct CountRow {
+            count: i64,
+        }
         let row = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) as count FROM repos WHERE id = ?")
             .bind(repo_id)
             .fetch_one(pool)
             .await?;
         if row.count > 0 {
-            sqlx::query(
-                "INSERT OR IGNORE INTO repo_list_members (list_id, repo_id) VALUES (?, ?)",
-            )
-            .bind(&parsed.id)
-            .bind(repo_id)
-            .execute(pool)
-            .await?;
+            sqlx::query("INSERT OR IGNORE INTO repo_list_members (list_id, repo_id) VALUES (?, ?)")
+                .bind(&parsed.id)
+                .bind(repo_id)
+                .execute(pool)
+                .await?;
         }
     }
 
@@ -499,16 +507,19 @@ mod tests {
     #[test]
     fn yaml_round_trip() {
         let original = RepoListYaml {
-            id:               "test-123".to_string(),
-            name:             "My Test List".to_string(),
-            description:      "A test".to_string(),
-            parent_id:        None,
+            id: "test-123".to_string(),
+            name: "My Test List".to_string(),
+            description: "A test".to_string(),
+            parent_id: None,
             exclude_patterns: vec!["org/legacy-*".to_string()],
-            repo_ids:         vec!["github:org/repo-a".to_string(), "github:org/repo-b".to_string()],
+            repo_ids: vec![
+                "github:org/repo-a".to_string(),
+                "github:org/repo-b".to_string(),
+            ],
         };
-        let yaml   = serde_yaml_ng::to_string(&original).expect("serialize");
+        let yaml = serde_yaml_ng::to_string(&original).expect("serialize");
         let parsed: RepoListYaml = serde_yaml_ng::from_str(&yaml).expect("deserialize");
-        assert_eq!(parsed.id,   original.id);
+        assert_eq!(parsed.id, original.id);
         assert_eq!(parsed.name, original.name);
         assert_eq!(parsed.repo_ids.len(), 2);
         assert_eq!(parsed.exclude_patterns, vec!["org/legacy-*"]);

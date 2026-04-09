@@ -2,8 +2,7 @@ use crate::models::RateLimitInfo;
 use crate::services::github::RateLimitSnapshot;
 use std::sync::{LazyLock, RwLock};
 
-static GITHUB: LazyLock<RwLock<Option<RateLimitInfo>>> =
-    LazyLock::new(|| RwLock::new(None));
+static GITHUB: LazyLock<RwLock<Option<RateLimitInfo>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Update the in-memory GitHub rate limit snapshot.
 pub fn update_github(snapshot: RateLimitSnapshot) {
