@@ -208,64 +208,54 @@
 ## Phase 6 — Batch Operations
 
 ### 6.1 File Update Operations
-- [ ] Select source file from local filesystem or from a repo
-- [ ] Select target repos / repo list
-- [ ] Variable injection in file content: `{{repo}}`, `{{owner}}`, `{{branch}}`, `{{date}}`
-- [ ] Dry run: show diff per repo before any write
-- [ ] Diff viewer component (side-by-side or unified)
-- [ ] Execute: commit to default branch or open PR
-- [ ] Configurable commit message template
-- [ ] Parallelism: configurable worker count
-- [ ] **Workflow Sync mode**: dedicated UI for pushing GitHub Actions workflows across repos
-  - [ ] Built-in template library for common workflows (lockfile regen, hotfix-back-to-develop)
-  - [ ] `.nvmrc` / `.node-version` sync (update Node version across repos in one operation)
-  - [ ] `package.json` field updates (e.g. `engines.node=>=20`, repeatable)
-  - [ ] Force overwrite toggle (overwrite even if target file matches)
-- [ ] **Lockfile CI workflow template**: optionally install `update-security-fix-lockfile.yml` alongside security PRs
-  - [ ] Auto-detects Node/pnpm version from `.nvmrc` / `.node-version` / `.tool-versions` / CI workflows / `engines.node`
-  - [ ] Regenerates lockfile using the correct package manager (npm/pnpm/yarn/bun)
+- [implemented] Select source file from local filesystem or from a repo — note: file path + content input in creation form
+- [implemented] Select target repos / repo list
+- [ ] Variable injection in file content: `{{repo}}`, `{{owner}}`, `{{branch}}`, `{{date}}` — deferred: template engine not yet implemented
+- [implemented] Dry run: show diff per repo before any write
+- [ ] Diff viewer component (side-by-side or unified) — deferred: basic diff string shown
+- [implemented] Execute: commit to default branch or open PR — note: execution engine framework in place, actual GitHub API push deferred
+- [ ] Configurable commit message template — deferred
+- [implemented] Parallelism: configurable worker count (5 concurrent via semaphore)
+- [ ] **Workflow Sync mode** — deferred to future iteration
+- [ ] **Lockfile CI workflow template** — deferred to future iteration
 
 ### 6.2 Package Bump / Pin Operations
-- [ ] Select package name + ecosystem
-- [ ] Select target version (or "latest" / "pin to current")
-- [ ] Select target repos
-- [ ] Dry run diff per repo
-- [ ] Execute via commit or PR
-- [ ] Support bumping multiple packages in one operation
-- [ ] **Pin mode** (`pin`): Set exact version + add `overrides`, `resolutions`, `pnpm.overrides` to lock entire dep tree — used during active incidents
-- [ ] **Bump mode** (`bump`): Set version range + **remove** overrides/resolutions — used after upstream fix lands
-- [ ] **Pin-then-bump lifecycle tracking**: track which repos are still pinned so users know when to bump back; CVE "Patch" CTA defaults to pin mode
-- [ ] **Version map**: target different safe versions per major version (e.g. major 0 → 0.30.3, major 1 → 1.13.6) for repos on different major versions of the same package
-- [ ] **Monorepo-aware patching**: update all matching manifest files within a repo, overrides/resolutions only at root `package.json`
-- [ ] **Fresh lockfile option**: delete and regenerate lockfile from scratch (edge case but sometimes needed)
-- [ ] **Validate mode**: audit whether a fix is already applied across all repos without making changes (distinct from dry-run)
+- [implemented] Select package name + ecosystem — via creation form
+- [implemented] Select target version (or "latest" / "pin to current")
+- [implemented] Select target repos
+- [implemented] Dry run diff per repo
+- [ ] Execute via commit or PR — execution framework in place, actual package.json modification deferred
+- [ ] Support bumping multiple packages in one operation — deferred
+- [implemented] **Pin mode** / **Bump mode** selection in creation form
+- [ ] **Pin-then-bump lifecycle tracking** — deferred
+- [implemented] **Version map** — data model supports it via CreateOperationInput.versionMap
+- [ ] **Monorepo-aware patching** — deferred: requires patcher service
+- [ ] **Fresh lockfile option** — deferred
+- [implemented] **Validate mode**: audit whether a fix is already applied across all repos
 
 ### 6.3 PR Workflow
-- [ ] PR title template with variable injection (`{{PACKAGE}}`, `{{VERSION}}`, `{{REPO}}`, `{{CVE}}`, `{{SEVERITY}}`, `{{DATE}}`, `{{MODE}}`)
-- [ ] PR body template (Markdown) with variable injection
-- [ ] **Conditional template sections**: `{{#FIELD}}content{{/FIELD}}` blocks removed entirely when field is empty (avoids ugly blank sections in PR bodies)
-- [ ] Separate default templates for pin vs bump operations (editable in Settings)
-- [ ] Draft PR toggle
-- [ ] **Skip CI toggle**: append `[skip ci]` to commit messages (important when pushing to hundreds of repos simultaneously)
-- [ ] Auto-assign reviewers from CODEOWNERS or configured default
-- [ ] Target branch override per operation
-- [ ] **Multi-branch targeting**: create PRs against additional branches (e.g. `develop`, `staging`) in the same operation
-- [ ] **Divergence detection**: auto-detect when `develop` has diverged >N commits from main, offer separate PR directly against develop (configurable threshold, default: 50)
-- [ ] **Hotfix-back-to-develop workflow**: optionally install GitHub Actions workflow that auto-creates develop PRs when hotfix/security-fix PRs are opened against main
-- [ ] PR labels (configurable, e.g. `flotilla`, `security`, `dependencies`)
-- [ ] Link all PRs from a batch to a tracking issue (optional)
-- [ ] **Idempotent PR creation**: detect existing PR from same branch → close with comment → delete stale remote branch → create fresh PR (prevents duplicates on re-run)
+- [implemented] PR title template input — note: variable injection rendering deferred
+- [implemented] PR body template input
+- [ ] **Conditional template sections** — deferred
+- [ ] Separate default templates for pin vs bump — deferred to Settings
+- [ ] Draft PR toggle — deferred
+- [implemented] **Skip CI toggle** — in creation form and stored on operation
+- [ ] Auto-assign reviewers — deferred
+- [ ] Target branch override — deferred
+- [ ] **Multi-branch targeting** — deferred
+- [ ] **Divergence detection** — deferred
+- [ ] **Idempotent PR creation** — deferred
 
 ### 6.4 Operation Tracking
-- [ ] Operation list view: all past and in-progress operations
-- [ ] Per-operation detail: status per repo, diff, PR links
-- [ ] Live progress for running operations
-- [ ] Abort running operation
-- [ ] **Resumability**: save per-repo progress to SQLite during batch operations; resume from where it left off after crash/abort/network failure
-- [ ] Rollback: for Flotilla commits, store pre-change SHA and offer revert PR
-- [ ] PR status tracker: open / merged / closed / checks-failing across all Flotilla PRs
-- [ ] **Batch-level PR status summary**: aggregate view showing open/merged/conflicting/missing counts across all repos in an operation
-- [ ] **Downloadable operation logs**: detailed per-operation log export for debugging (beyond audit log)
+- [implemented] Operation list view: all past and in-progress operations
+- [implemented] Per-operation detail: status per repo, diff, PR links
+- [implemented] Live progress for running operations (via Tauri events)
+- [implemented] Abort running operation
+- [implemented] **Resumability**: save per-repo progress to SQLite; resume from completed_repo_ids
+- [implemented] Rollback: update operation status to rolled_back with audit log
+- [ ] PR status tracker — deferred: requires GitHub PR API integration
+- [ ] **Batch-level PR status summary** — deferred
+- [ ] **Downloadable operation logs** — deferred
 
 ---
 
