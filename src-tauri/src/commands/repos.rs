@@ -4,6 +4,7 @@ use crate::{
     error::{AppError, AppResult},
     models::{Repo, RepoList},
     services::github::{GitHubClient, GitHubRepo},
+    services::gitlab::{GitLabClient, GitLabProject},
 };
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
@@ -29,6 +30,24 @@ fn gh_repo_to_model(r: &GitHubRepo) -> Repo {
         url: r.html_url.clone(),
         default_branch: r.default_branch.clone(),
         is_private: r.private,
+        last_scanned_at: None,
+        tags: vec![],
+    }
+}
+
+fn gl_project_to_model(p: &GitLabProject) -> Repo {
+    Repo {
+        id: format!("gitlab:{}", p.path_with_namespace),
+        provider: "gitlab".to_string(),
+        owner: p.namespace.full_path.clone(),
+        name: p.name.clone(),
+        full_name: p.path_with_namespace.clone(),
+        url: p.web_url.clone(),
+        default_branch: p
+            .default_branch
+            .clone()
+            .unwrap_or_else(|| "main".to_string()),
+        is_private: p.visibility == "private",
         last_scanned_at: None,
         tags: vec![],
     }
@@ -145,10 +164,49 @@ async fn fetch_repo_by_id(pool: &sqlx::SqlitePool, id: &str) -> AppResult<Repo> 
 // ── Repo commands ──────────────────────────────────────────────────────────
 
 /// Discover all repos accessible to the account and upsert into SQLite.
+///
+/// Supports both GitHub and GitLab accounts. The provider is inferred from
+/// the `account_id` prefix (e.g. `github:octocat` or `gitlab:alice`).
 #[tauri::command]
 pub async fn discover_repos(account_id: String) -> AppResult<Vec<Repo>> {
     let token = get_token(&account_id)?;
-    let client = GitHubClient::new(&token);
+
+    // Determine provider from account ID prefix
+    let provider = account_id.split(':').next().unwrap_or("github");
+
+    let repos = match provider {
+        "gitlab" => discover_gitlab_repos(&token).await?,
+        _ => discover_github_repos(&token).await?,
+    };
+
+    let pool = db::pool()?;
+    for repo in &repos {
+        sqlx::query(
+            r#"INSERT INTO repos (id, provider, owner, name, full_name, url, default_branch, is_private)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                   default_branch = excluded.default_branch,
+                   url            = excluded.url,
+                   updated_at     = datetime('now')"#,
+        )
+        .bind(&repo.id)
+        .bind(&repo.provider)
+        .bind(&repo.owner)
+        .bind(&repo.name)
+        .bind(&repo.full_name)
+        .bind(&repo.url)
+        .bind(&repo.default_branch)
+        .bind(repo.is_private as i64)
+        .execute(pool)
+        .await?;
+    }
+
+    tracing::info!("Discovered {} repos for {}", repos.len(), account_id);
+    Ok(repos)
+}
+
+async fn discover_github_repos(token: &str) -> AppResult<Vec<Repo>> {
+    let client = GitHubClient::new(token);
 
     // Fetch user repos
     let (user_repos, rate_limit) = client.list_all_repos().await?;
@@ -181,34 +239,45 @@ pub async fn discover_repos(account_id: String) -> AppResult<Vec<Repo>> {
         }
     }
 
-    let pool = db::pool()?;
-    let mut result = Vec::new();
+    Ok(all_gh.iter().map(gh_repo_to_model).collect())
+}
 
-    for gh in &all_gh {
-        let repo = gh_repo_to_model(gh);
-        sqlx::query(
-            r#"INSERT INTO repos (id, provider, owner, name, full_name, url, default_branch, is_private)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-               ON CONFLICT(id) DO UPDATE SET
-                   default_branch = excluded.default_branch,
-                   url            = excluded.url,
-                   updated_at     = datetime('now')"#,
-        )
-        .bind(&repo.id)
-        .bind(&repo.provider)
-        .bind(&repo.owner)
-        .bind(&repo.name)
-        .bind(&repo.full_name)
-        .bind(&repo.url)
-        .bind(&repo.default_branch)
-        .bind(repo.is_private as i64)
-        .execute(pool)
-        .await?;
-        result.push(repo);
+async fn discover_gitlab_repos(token: &str) -> AppResult<Vec<Repo>> {
+    let client = GitLabClient::new(token, None);
+
+    // Fetch all projects the user is a member of
+    let (projects, rate_limit) = client.list_all_projects().await?;
+    if let Some(rl) = rate_limit {
+        crate::services::rate_limiter::update_gitlab(rl);
     }
 
-    tracing::info!("Discovered {} repos for {}", result.len(), account_id);
-    Ok(result)
+    // Fetch group projects (deduplicated with membership projects)
+    let (groups, groups_rl) = client.list_groups().await?;
+    if let Some(rl) = groups_rl {
+        crate::services::rate_limiter::update_gitlab(rl);
+    }
+
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut all_gl: Vec<GitLabProject> = Vec::new();
+
+    for p in projects {
+        if seen.insert(p.path_with_namespace.clone()) {
+            all_gl.push(p);
+        }
+    }
+    for group in &groups {
+        let (group_projects, group_rl) = client.list_group_projects(&group.full_path).await?;
+        if let Some(rl) = group_rl {
+            crate::services::rate_limiter::update_gitlab(rl);
+        }
+        for p in group_projects {
+            if seen.insert(p.path_with_namespace.clone()) {
+                all_gl.push(p);
+            }
+        }
+    }
+
+    Ok(all_gl.iter().map(gl_project_to_model).collect())
 }
 
 /// List repos from SQLite, optionally filtered by membership in a repo list.

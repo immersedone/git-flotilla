@@ -63,6 +63,12 @@ async function handleRemove(id: string) {
 
 const REQUIRED_SCOPES: Record<string, string[]> = {
   github: ['repo', 'workflow', 'read:org'],
+  gitlab: ['api', 'read_repository', 'write_repository'],
+}
+
+const TOKEN_PLACEHOLDER: Record<string, string> = {
+  github: 'ghp_xxxxxxxxxxxxxxxx',
+  gitlab: 'glpat-xxxxxxxxxxxxxxxxxxxx',
 }
 </script>
 
@@ -119,12 +125,11 @@ const REQUIRED_SCOPES: Record<string, string[]> = {
           @click="provider = 'github'"
         >GitHub</button>
         <button
-          class="flex-1 py-1.5 text-sm rounded-md border transition-colors opacity-50 cursor-not-allowed"
+          class="flex-1 py-1.5 text-sm rounded-md border transition-colors"
           :class="provider === 'gitlab'
             ? 'border-primary bg-primary/10 text-primary'
-            : 'border-border text-muted'"
-          disabled
-          title="GitLab support coming soon"
+            : 'border-border text-muted hover:border-primary/50'"
+          @click="provider = 'gitlab'"
         >GitLab</button>
       </div>
 
@@ -133,7 +138,7 @@ const REQUIRED_SCOPES: Record<string, string[]> = {
         <Input
           v-model="token"
           type="password"
-          placeholder="ghp_xxxxxxxxxxxxxxxx"
+          :placeholder="TOKEN_PLACEHOLDER[provider] ?? 'Enter token'"
           :error="formError ?? undefined"
         />
         <p class="text-xs text-muted mt-1">

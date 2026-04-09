@@ -2,6 +2,7 @@ use crate::{
     db,
     error::{AppError, AppResult},
     services::github::GitHubClient,
+    services::gitlab::GitLabClient,
 };
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) const KEYCHAIN_SERVICE: &str = "git-flotilla";
 
 const REQUIRED_GITHUB_SCOPES: &[&str] = &["repo", "workflow", "read:org"];
+const REQUIRED_GITLAB_SCOPES: &[&str] = &["api", "read_repository", "write_repository"];
 
 /// Info about a connected account returned to the frontend.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -32,40 +34,73 @@ fn keychain_entry(id: &str) -> AppResult<Entry> {
 }
 
 fn check_missing_scopes(provider: &str, scopes: &[String]) -> Vec<String> {
-    if provider != "github" {
-        return vec![];
-    }
-    REQUIRED_GITHUB_SCOPES
+    let required = match provider {
+        "github" => REQUIRED_GITHUB_SCOPES,
+        // GitLab PATs don't expose scopes via API responses, so we can't
+        // check them. Return empty — the token either works or fails.
+        "gitlab" if scopes.is_empty() => return vec![],
+        "gitlab" => REQUIRED_GITLAB_SCOPES,
+        _ => return vec![],
+    };
+    required
         .iter()
-        .filter(|required| !scopes.iter().any(|s| s == *required))
+        .filter(|r| !scopes.iter().any(|s| s == *r))
         .map(|s| s.to_string())
         .collect()
 }
 
-/// Validate a token against the GitHub API without storing it.
+/// Validate a token against the GitHub or GitLab API without storing it.
 /// Returns AccountInfo including granted scopes and any missing required scopes.
 #[tauri::command]
 pub async fn validate_token(provider: String, token: String) -> AppResult<AccountInfo> {
-    if provider != "github" {
-        return Err(AppError::InvalidInput(format!(
-            "Unsupported provider: {provider}. Currently only 'github' is supported."
-        )));
+    match provider.as_str() {
+        "github" => validate_github_token(&provider, &token).await,
+        "gitlab" => validate_gitlab_token(&provider, &token).await,
+        _ => Err(AppError::InvalidInput(format!(
+            "Unsupported provider: {provider}. Supported: 'github', 'gitlab'."
+        ))),
     }
+}
 
-    let client = GitHubClient::new(&token);
+async fn validate_github_token(provider: &str, token: &str) -> AppResult<AccountInfo> {
+    let client = GitHubClient::new(token);
     let (user, scopes, rate_limit) = client.get_authenticated_user().await?;
 
-    // Update global rate limit state
     if let Some(rl) = rate_limit {
         crate::services::rate_limiter::update_github(rl);
     }
 
-    let missing_scopes = check_missing_scopes(&provider, &scopes);
+    let missing_scopes = check_missing_scopes(provider, &scopes);
 
     Ok(AccountInfo {
-        id: account_id(&provider, &user.login),
-        provider,
+        id: account_id(provider, &user.login),
+        provider: provider.to_string(),
         username: user.login,
+        avatar_url: user.avatar_url,
+        scopes,
+        missing_scopes,
+    })
+}
+
+async fn validate_gitlab_token(provider: &str, token: &str) -> AppResult<AccountInfo> {
+    let client = GitLabClient::new(token, None);
+    let (user, rate_limit) = client.get_authenticated_user().await?;
+
+    if let Some(rl) = rate_limit {
+        crate::services::rate_limiter::update_gitlab(rl);
+    }
+
+    // GitLab PATs don't expose scopes via response headers in the same way
+    // as GitHub. The token either works or it doesn't. We cannot reliably
+    // determine granted scopes from the /user endpoint, so we return an
+    // empty scopes list and note the limitation in missing_scopes.
+    let scopes: Vec<String> = vec![];
+    let missing_scopes = check_missing_scopes(provider, &scopes);
+
+    Ok(AccountInfo {
+        id: account_id(provider, &user.username),
+        provider: provider.to_string(),
+        username: user.username,
         avatar_url: user.avatar_url,
         scopes,
         missing_scopes,
