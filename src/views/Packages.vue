@@ -60,12 +60,28 @@ function getVersionEntries(pkg: PackageRow): Array<{ repoId: string; version: st
 function versionColor(version: string, allVersions: string[]): string {
   const unique = [...new Set(allVersions)]
   if (unique.length <= 1) return 'text-green-500'
-  return version === unique[0] ? 'text-green-500' : 'text-amber-500'
+  // Most common version gets green (likely the "standard"), others get amber
+  const counts: Record<string, number> = {}
+  for (const v of allVersions) {
+    counts[v] = (counts[v] ?? 0) + 1
+  }
+  const mostCommon = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
+  return version === mostCommon ? 'text-green-500' : 'text-amber-500'
+}
+
+function compareSemver(a: string, b: string): number {
+  const pa = a.replace(/^[^0-9]*/, '').split('.').map(Number)
+  const pb = b.replace(/^[^0-9]*/, '').split('.').map(Number)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0)
+    if (diff !== 0) return diff
+  }
+  return 0
 }
 
 async function loadChangelog(pkg: PackageRow) {
   const versions = Object.values(pkg.versionsByRepo)
-  const sorted = [...new Set(versions)].sort()
+  const sorted = [...new Set(versions)].sort(compareSemver)
   const from = sorted[0]
   const to = pkg.latestVersion ?? sorted[sorted.length - 1]
   changelogTarget.value = `${pkg.ecosystem}:${pkg.name}`

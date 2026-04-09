@@ -96,7 +96,11 @@ pub fn releases_to_changelog(
 
         if collecting {
             let body = release.body.clone().unwrap_or_default();
-            let is_breaking = body.contains("breaking") || body.contains("BREAKING");
+            let body_lower = body.to_lowercase();
+            let is_breaking = body_lower.contains("breaking change")
+                || body_lower.contains("breaking:")
+                || body.contains("BREAKING CHANGE")
+                || body.contains("⚠");
 
             entries.push(ChangelogEntry {
                 version: tag_norm.clone(),
