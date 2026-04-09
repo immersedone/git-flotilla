@@ -137,31 +137,31 @@
 ## Phase 4 — Package Intelligence
 
 ### 4.1 Dependency Matrix
-- [ ] Cross-repo package table: rows = packages, columns = repos, cells = version used
-- [ ] Filter by ecosystem (npm / composer / pip / cargo / go)
-- [ ] Filter by repo list
-- [ ] Highlight version drift (same package, different versions across repos)
-- [ ] Sort by: package name, number of repos using it, highest drift
-- [ ] Show latest available version from registry (npm, packagist, pypi, crates.io)
-- [ ] Show outdated indicator (current vs latest)
-- [ ] Identify packages unique to one repo ("orphan packages")
-- [ ] Identify superseded packages (configurable list, e.g. `node-fetch` → native)
-- [ ] Export matrix as CSV
-- [ ] Export matrix as JSON
+- [implemented] Cross-repo package table: rows = packages, columns = repos, cells = version used
+- [implemented] Filter by ecosystem (npm / composer / pip / cargo / go)
+- [implemented] Filter by repo list
+- [implemented] Highlight version drift (same package, different versions across repos)
+- [implemented] Sort by: package name, number of repos using it, highest drift
+- [ ] Show latest available version from registry (npm, packagist, pypi, crates.io) — deferred: requires registry API integration
+- [ ] Show outdated indicator (current vs latest) — deferred: requires latest version lookup
+- [implemented] Identify packages unique to one repo ("orphan packages") — via repoCount == 1
+- [ ] Identify superseded packages (configurable list, e.g. `node-fetch` → native) — deferred: requires configurable supersession list
+- [implemented] Export matrix as CSV
+- [ ] Export matrix as JSON — deferred: CSV export implemented, JSON trivial to add
 
 ### 4.2 Changelog Aggregation
-- [ ] When proposing a package bump, fetch and display changelog entries between current version and target version
-- [ ] Pull from GitHub Releases API or `CHANGELOG.md` in the package repo
-- [ ] Highlight breaking changes, deprecations, and security fixes
-- [ ] Show per-repo: current version → target version with relevant changelog section
-- [ ] Cache changelogs in SQLite to avoid repeated API calls
+- [implemented] When proposing a package bump, fetch and display changelog entries between current version and target version
+- [implemented] Pull from GitHub Releases API — note: CHANGELOG.md fallback deferred
+- [implemented] Highlight breaking changes, deprecations, and security fixes
+- [ ] Show per-repo: current version → target version with relevant changelog section — partial: changelog fetched per-package, not per-repo
+- [ ] Cache changelogs in SQLite to avoid repeated API calls — deferred
 
 ### 4.3 Package Standardisation
-- [ ] Select a package + target version from matrix
-- [ ] Preview which repos would be affected
-- [ ] Dry run: show diff for each affected repo
-- [ ] Create batch operation: bump package to target version across selected repos
-- [ ] Open PRs or direct commit per user preference
+- [ ] Select a package + target version from matrix — deferred: requires Batch Operations (Phase 6)
+- [ ] Preview which repos would be affected — deferred: requires Batch Operations (Phase 6)
+- [ ] Dry run: show diff for each affected repo — deferred: requires Batch Operations (Phase 6)
+- [ ] Create batch operation: bump package to target version across selected repos — deferred: requires Batch Operations (Phase 6)
+- [ ] Open PRs or direct commit per user preference — deferred: requires Batch Operations (Phase 6)
 
 ---
 
