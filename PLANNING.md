@@ -49,7 +49,7 @@
 
 - [implemented] GitHub Personal Access Token input + validation
 - [ ] GitHub OAuth App flow (optional, for teams)
-- [ ] GitLab Personal Access Token input + validation
+- [implemented] GitLab Personal Access Token input + validation
 - [implemented] OS keychain storage via `keyring` crate
 - [implemented] Token scope validation on save (warn on missing scopes)
 - [ ] Multi-account support (multiple GitHub/GitLab accounts) — note: model supports it, UI shows first account
@@ -59,8 +59,8 @@
 ### 2.2 Repo Discovery
 - [implemented] List all repos accessible to authenticated GitHub user
 - [implemented] List all repos in authenticated GitHub orgs
-- [ ] List all repos accessible to authenticated GitLab user
-- [ ] List all repos in authenticated GitLab groups
+- [implemented] List all repos accessible to authenticated GitLab user
+- [implemented] List all repos in authenticated GitLab groups
 - [implemented] Pagination handling for large orgs (>100 repos)
 - [implemented] Store discovered repos in SQLite
 - [implemented] Display repos in a searchable, filterable table
@@ -367,9 +367,9 @@
 
 > GitLab mirrors GitHub implementation throughout. Implement GitHub first, then add GitLab.
 
-- [ ] GitLab PAT auth + scope validation
-- [ ] GitLab repo/group discovery
-- [ ] GitLab API client in `services/gitlab.rs`
+- [implemented] GitLab PAT auth + scope validation — note: GitLab PATs don't expose scopes via API, so validation confirms token works (GET /user succeeds)
+- [implemented] GitLab repo/group discovery — paginated project + group listing, deduplicated, rate limit tracked
+- [implemented] GitLab API client in `services/gitlab.rs` — supports self-hosted instances via configurable base_url
 - [ ] GitLab MR (Merge Request) support in batch operations (mirrors PR workflow)
 - [ ] GitLab CI file scanning (`.gitlab-ci.yml`)
 - [ ] GitLab-specific health checks
