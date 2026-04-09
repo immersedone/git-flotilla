@@ -1,0 +1,74 @@
+name: Build macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build Tauri (universal binary)
+        run: pnpm tauri build --target universal-apple-darwin
+
+      # NOTE: This build produces an unsigned/unnotarised .dmg and .app.
+      # macOS Gatekeeper will show a warning when users try to open it.
+      # Users can right-click > Open to bypass, or run:
+      #   xattr -cr "/Applications/Git Flotilla.app"
+      #
+      # For production distribution, you need:
+      #   1. An Apple Developer ID certificate ($99/year Apple Developer Program)
+      #   2. Code signing via `codesign` during the build
+      #   3. Notarisation via `xcrun notarytool`
+      #   4. Stapling the notarisation ticket via `xcrun stapler`
+      #
+      # Tauri supports signing via environment variables:
+      #   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY
+      # See: https://tauri.app/distribute/sign/macos/
+
+      - name: List build artifacts
+        run: |
+          echo "=== DMG ==="
+          ls -lh src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg 2>/dev/null || echo "No DMG found"
+          echo "=== App tarball ==="
+          ls -lh src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz 2>/dev/null || echo "No app tarball found"
+
+      - name: Upload to release
+        if: github.event.inputs.version != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.inputs.version }}" \
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg \
+            src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz \
+            --clobber
