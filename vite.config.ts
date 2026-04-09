@@ -30,6 +30,6 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     globals: true,
-    exclude: ['src-tauri/**', 'node_modules/**'],
+    exclude: ['src-tauri/**', 'node_modules/**', '.worktrees/**'],
   },
 })
