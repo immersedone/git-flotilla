@@ -1,8 +1,12 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { ScriptPreset } from '@/types/script'
+import type { ScriptPreset, ScriptRun } from '@/types/script'
 
 export function runScript(command: string, repoIds: string[], parallel: number): Promise<string> {
   return invoke('run_script', { command, repoIds, parallel })
+}
+
+export function getScriptRun(runId: string): Promise<ScriptRun> {
+  return invoke('get_script_run', { runId })
 }
 
 export function abortScript(runId: string): Promise<void> {
