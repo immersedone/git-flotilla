@@ -40,6 +40,9 @@ serde_yaml_ng = "0.9"
 tracing            = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# Base64 decoding (GitHub content API)
+base64 = "0.22"
+
 # Paths
 dirs = "5"
 
