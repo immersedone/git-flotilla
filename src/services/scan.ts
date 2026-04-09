@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { ScanResult } from '@/types/scan'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import type { ScanResult, ScanProgressEvent } from '@/types/scan'
 
 export function scanRepo(repoId: string): Promise<ScanResult> {
   return invoke('scan_repo', { repoId })
@@ -19,4 +20,12 @@ export function listScanResults(repoListId?: string): Promise<ScanResult[]> {
 
 export function abortScan(operationId: string): Promise<void> {
   return invoke('abort_scan', { operationId })
+}
+
+export function onScanProgress(
+  callback: (event: ScanProgressEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<ScanProgressEvent>('scan-progress', (event) => {
+    callback(event.payload)
+  })
 }

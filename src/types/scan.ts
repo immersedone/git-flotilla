@@ -22,3 +22,18 @@ export interface ScanResult {
   excluded: boolean
   excludeReason: string | null
 }
+
+export interface ScanProgressEvent {
+  repoId: string
+  status: 'scanning' | 'done' | 'failed'
+  current: number
+  total: number
+  error: string | null
+}
+
+export interface BatchScanSummary {
+  total: number
+  succeeded: number
+  failed: number
+  inProgress: number
+}
