@@ -4,3 +4,5 @@ pub mod github;
 pub mod gitlab;
 pub mod rate_limiter;
 pub mod scanner;
+pub mod scheduler;
+pub mod template;
