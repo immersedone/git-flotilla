@@ -39,3 +39,7 @@ export function addToWatchlist(packageName: string, ecosystem: string): Promise<
 export function removeFromWatchlist(packageName: string, ecosystem: string): Promise<void> {
   return invoke('remove_from_watchlist', { packageName, ecosystem })
 }
+
+export function listWatchlist(): Promise<Array<{ packageName: string; ecosystem: string; addedAt: string }>> {
+  return invoke('list_watchlist')
+}
