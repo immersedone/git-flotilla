@@ -84,36 +84,36 @@
 ## Phase 3 — Scanning
 
 ### 3.1 Single Repo Scanner
-- [ ] Fetch and parse `package.json` (dependencies + devDependencies)
-- [ ] Fetch and parse `composer.json` (require + require-dev)
-- [ ] Fetch and parse `requirements.txt`
-- [ ] Fetch and parse `Cargo.toml`
-- [ ] Fetch and parse `go.mod`
-- [ ] Monorepo-aware manifest discovery: find **all** `package.json` / `composer.json` files (excluding `node_modules/`, `vendor/`, `dist/`, `build/`, `.next/`, `.nuxt/`, `.cache/`), store as `manifestPaths[]` array per repo
-- [ ] Detect Node version from `.nvmrc`, `.node-version`, `.tool-versions`, CI workflow files, `package.json#engines.node` (in priority order)
-- [ ] Store `nodeVersionSource` — where the version was detected (e.g. `.nvmrc`, `.node-version`, `engines.node`)
-- [ ] Detect PHP version from `composer.json#require.php`
-- [ ] Detect package manager: check for `pnpm-lock.yaml`, `yarn.lock`, `bun.lockb`, `package-lock.json`
-- [ ] Detect package manager version from lockfile headers, `packageManager` field, `engines.pnpm`/`engines.npm`
-- [ ] Detect `develop` branch existence (`hasDevelop` flag) — used for PR targeting
-- [ ] Store `lastPushed` timestamp — useful for staleness detection and incremental scan updates
-- [ ] Auto-exclude logic: mark repos without relevant manifests as `exclude: true` with `excludeReason`
-- [ ] Inventory `.github/workflows/*.yml` files
-- [ ] Detect floating Action tags in workflow files (e.g. `@v4` instead of pinned SHA)
-- [ ] Detect presence of: `.env.example`, `CODEOWNERS`, `SECURITY.md`, `.editorconfig`
-- [ ] Compute health score (0–100) based on configurable rules
-- [ ] Store scan result in SQLite with timestamp
-- [ ] Scan diff: compare to previous scan, surface what changed
+- [implemented] Fetch and parse `package.json` (dependencies + devDependencies)
+- [implemented] Fetch and parse `composer.json` (require + require-dev)
+- [ ] Fetch and parse `requirements.txt` — deferred: npm/composer ecosystems prioritised
+- [ ] Fetch and parse `Cargo.toml` — deferred: npm/composer ecosystems prioritised
+- [ ] Fetch and parse `go.mod` — deferred: npm/composer ecosystems prioritised
+- [implemented] Monorepo-aware manifest discovery: find **all** `package.json` / `composer.json` files (excluding `node_modules/`, `vendor/`, `dist/`, `build/`, `.next/`, `.nuxt/`, `.cache/`), store as `manifestPaths[]` array per repo
+- [implemented] Detect Node version from `.nvmrc`, `.node-version`, `.tool-versions`, CI workflow files, `package.json#engines.node` (in priority order)
+- [implemented] Store `nodeVersionSource` — where the version was detected (e.g. `.nvmrc`, `.node-version`, `engines.node`)
+- [implemented] Detect PHP version from `composer.json#require.php`
+- [implemented] Detect package manager: check for `pnpm-lock.yaml`, `yarn.lock`, `bun.lockb`, `package-lock.json`
+- [implemented] Detect package manager version from `packageManager` field — note: lockfile header parsing deferred
+- [implemented] Detect `develop` branch existence (`hasDevelop` flag) — used for PR targeting
+- [implemented] Store `lastPushed` timestamp — note: currently stored as field but not populated from GitHub API pushed_at; deferred
+- [implemented] Auto-exclude logic: mark repos without relevant manifests as `exclude: true` with `excludeReason`
+- [implemented] Inventory `.github/workflows/*.yml` files
+- [implemented] Detect floating Action tags in workflow files (e.g. `@v4` instead of pinned SHA)
+- [implemented] Detect presence of: `.env.example`, `CODEOWNERS`, `SECURITY.md`, `.editorconfig`
+- [implemented] Compute health score (0–100) based on configurable rules
+- [implemented] Store scan result in SQLite with timestamp
+- [ ] Scan diff: compare to previous scan, surface what changed — deferred: requires two scan results for comparison
 
 ### 3.2 Batch Scanner
-- [ ] Scan entire repo list in parallel (configurable worker count, default: 5)
-- [ ] Progress indicator: X / N repos scanned
-- [ ] Per-repo status: queued / scanning / done / failed
-- [ ] Abort running scan
-- [ ] Scan summary on completion: health score distribution, top issues
-- [ ] Rate limit awareness: display remaining GitHub/GitLab API quota, auto-pause when low (<100 remaining)
-- [ ] Configurable inter-request delay (default: 200ms) to avoid hammering the API
-- [ ] Incremental scan (update mode): only re-check repos pushed since last scan (`lastPushed` comparison)
+- [implemented] Scan entire repo list in parallel (configurable worker count, default: 5)
+- [implemented] Progress indicator: X / N repos scanned
+- [implemented] Per-repo status: queued / scanning / done / failed
+- [implemented] Abort running scan
+- [ ] Scan summary on completion: health score distribution, top issues — deferred: basic progress events implemented
+- [ ] Rate limit awareness: display remaining GitHub/GitLab API quota, auto-pause when low (<100 remaining) — partial: rate limit updated per API call, auto-pause not yet implemented
+- [implemented] Configurable inter-request delay (default: 200ms) to avoid hammering the API
+- [ ] Incremental scan (update mode): only re-check repos pushed since last scan (`lastPushed` comparison) — deferred: requires lastPushed population
 
 ### 3.3 Scheduled Scans
 - [ ] Background scheduler (tokio interval)
