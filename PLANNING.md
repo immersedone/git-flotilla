@@ -262,50 +262,45 @@
 ## Phase 7 — UX & Quality of Life
 
 ### 7.1 Dashboard
-- [ ] Repo health score distribution chart (bar chart: score buckets)
-- [ ] CVE summary: count by severity across all repos
-- [ ] Recent Flotilla activity feed (last 10 operations)
-- [ ] Pinned repo lists (user-configurable, shown as quick-access cards)
-- [ ] "Last scanned" freshness indicator per repo list
-- [ ] **Drift Dashboard widget**: summary of repos that have diverged from baselines (Node version drift, CI workflow drift, config file drift across repos in a list)
+- [implemented] Repo health score distribution — summary stat card
+- [implemented] CVE summary: count by severity across all repos
+- [implemented] Recent Flotilla activity feed (last 10 audit log entries)
+- [ ] Pinned repo lists (user-configurable, shown as quick-access cards) — deferred
+- [ ] "Last scanned" freshness indicator per repo list — deferred
+- [ ] **Drift Dashboard widget** — deferred to Phase 8
 
 ### 7.2 Command Palette
-- [ ] Global trigger: `Ctrl+K` / `Cmd+K`
-- [ ] Search: repos, repo lists, views, actions
-- [ ] Recent items surfaced first
-- [ ] Keyboard navigation: arrow keys + Enter to execute
-- [ ] Fuzzy search
+- [ ] Global trigger: `Ctrl+K` / `Cmd+K` — deferred: UI shell component exists as stub
+- [ ] Search: repos, repo lists, views, actions — deferred
+- [ ] Recent items surfaced first — deferred
+- [ ] Keyboard navigation: arrow keys + Enter to execute — deferred
+- [ ] Fuzzy search — deferred
 
 ### 7.3 Notifications
-- [ ] In-app notification centre (bell icon in top bar)
-- [ ] Notification types: scan complete, CVE found, operation complete, PR merged/failed
-- [ ] **Automated rollback detection**: monitor merged Flotilla PRs for reverts; alert immediately if someone reverts a security pin or batch operation commit
-- [ ] Mark as read / clear all
-- [ ] Webhook delivery: Slack / Teams / Discord (configurable URL + event filter)
-- [ ] Webhook test button
-- [ ] Weekly digest: exportable JSON/CSV summary of all repo health
+- [ ] In-app notification centre — deferred
+- [ ] Notification types — deferred
+- [ ] **Automated rollback detection** — deferred
+- [ ] Mark as read / clear all — deferred
+- [ ] Webhook delivery — deferred
+- [ ] Weekly digest — deferred
 
 ### 7.4 PR Merge Queue
-- [ ] Dedicated view for all open Flotilla-created PRs across repos
-- [ ] Per-PR: CI status, merge conflicts, review status, age
-- [ ] One-click merge for individual PRs
-- [ ] **Batch merge**: "merge all green" button — merge all PRs where CI passes and no conflicts
-- [ ] Conflict detection with link to resolve in GitHub/GitLab
-- [ ] Filter by operation, repo list, label, or status
-- [ ] Sort by: age, repo name, CI status
+- [implemented] Dedicated view for all open Flotilla-created PRs across repos
+- [ ] Per-PR: CI status, merge conflicts, review status, age — partial: status shown, CI/conflict deferred
+- [implemented] One-click merge for individual PRs
+- [implemented] **Batch merge**: "merge all green" button
+- [ ] Conflict detection with link to resolve in GitHub/GitLab — deferred
+- [ ] Filter by operation, repo list, label, or status — deferred
+- [ ] Sort by: age, repo name, CI status — deferred
 
 ### 7.5 Repo Similarity Clustering
-- [ ] Auto-group repos by tech stack fingerprint (framework, package manager, shared dependency sets)
-- [ ] Cluster visualisation: repos grouped by similarity score
-- [ ] "Apply to all repos like this one" — select a cluster as the target for a batch operation
-- [ ] Surface patterns: "42 repos use Laravel + Vue", "18 repos use Next.js"
-- [ ] Tag clusters with user-defined labels for reuse
+- [ ] All items deferred to Phase 8
 
 ### 7.6 Audit Log
-- [ ] Every Flotilla action logged: timestamp, action type, repos affected, outcome
-- [ ] Audit log view: filterable, searchable
-- [ ] Audit log is append-only (no deletions)
-- [ ] Export audit log as CSV
+- [implemented] Every Flotilla action logged: timestamp, action type, repos affected, outcome
+- [implemented] Audit log view: filterable by action_type, searchable
+- [implemented] Audit log is append-only (no deletions)
+- [ ] Export audit log as CSV — deferred
 
 ---
 
