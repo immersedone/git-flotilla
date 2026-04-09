@@ -138,9 +138,7 @@ pub async fn scan_secrets(repo_ids: Vec<String>) -> AppResult<Vec<SecretFinding>
         "INSERT INTO audit_log (id, action_type, repo_ids, outcome, detail)
          VALUES (lower(hex(randomblob(16))), 'secret_scan', ?, 'completed', ?)",
     )
-    .bind(
-        serde_json::to_string(&repo_ids).unwrap_or_default(),
-    )
+    .bind(serde_json::to_string(&repo_ids).unwrap_or_default())
     .bind(format!("Found {} findings", findings.len()))
     .execute(pool)
     .await;
@@ -165,12 +163,11 @@ pub async fn scan_licences(repo_ids: Vec<String>) -> AppResult<Vec<LicenceFindin
     let mut findings = Vec::new();
 
     for repo_id in &repo_ids {
-        let packages: Vec<(String, String)> = sqlx::query_as(
-            "SELECT DISTINCT name, ecosystem FROM repo_packages WHERE repo_id = ?",
-        )
-        .bind(repo_id)
-        .fetch_all(pool)
-        .await?;
+        let packages: Vec<(String, String)> =
+            sqlx::query_as("SELECT DISTINCT name, ecosystem FROM repo_packages WHERE repo_id = ?")
+                .bind(repo_id)
+                .fetch_all(pool)
+                .await?;
 
         for (name, ecosystem) in packages {
             findings.push(LicenceFinding {
@@ -188,10 +185,11 @@ pub async fn scan_licences(repo_ids: Vec<String>) -> AppResult<Vec<LicenceFindin
         "INSERT INTO audit_log (id, action_type, repo_ids, outcome, detail)
          VALUES (lower(hex(randomblob(16))), 'licence_scan', ?, 'completed', ?)",
     )
-    .bind(
-        serde_json::to_string(&repo_ids).unwrap_or_default(),
-    )
-    .bind(format!("Found {} packages with unknown licences", findings.len()))
+    .bind(serde_json::to_string(&repo_ids).unwrap_or_default())
+    .bind(format!(
+        "Found {} packages with unknown licences",
+        findings.len()
+    ))
     .execute(pool)
     .await;
 
@@ -232,8 +230,8 @@ pub async fn audit_branch_protection(
             repo_id: repo_id.clone(),
             branch,
             requires_reviews: false,       // unknown until API call
-            requires_status_checks: false,  // unknown until API call
-            is_protected: false,            // unknown until API call
+            requires_status_checks: false, // unknown until API call
+            is_protected: false,           // unknown until API call
         });
     }
 
@@ -242,9 +240,7 @@ pub async fn audit_branch_protection(
         "INSERT INTO audit_log (id, action_type, repo_ids, outcome, detail)
          VALUES (lower(hex(randomblob(16))), 'branch_protection_audit', ?, 'completed', ?)",
     )
-    .bind(
-        serde_json::to_string(&repo_ids).unwrap_or_default(),
-    )
+    .bind(serde_json::to_string(&repo_ids).unwrap_or_default())
     .bind(format!(
         "Audited {} repos (placeholder — API integration pending)",
         statuses.len()
@@ -275,9 +271,7 @@ pub async fn archive_repos(repo_ids: Vec<String>) -> AppResult<u32> {
         "INSERT INTO audit_log (id, action_type, repo_ids, outcome, detail)
          VALUES (lower(hex(randomblob(16))), 'archive_repos', ?, 'completed', ?)",
     )
-    .bind(
-        serde_json::to_string(&repo_ids).unwrap_or_default(),
-    )
+    .bind(serde_json::to_string(&repo_ids).unwrap_or_default())
     .bind(format!(
         "Would archive {} repos (placeholder — API integration pending)",
         count
@@ -303,8 +297,14 @@ mod tests {
         };
         let json = serde_json::to_value(&finding).expect("serialize");
         assert!(json.get("repoId").is_some(), "should have camelCase repoId");
-        assert!(json.get("filePath").is_some(), "should have camelCase filePath");
-        assert!(json.get("findingType").is_some(), "should have camelCase findingType");
+        assert!(
+            json.get("filePath").is_some(),
+            "should have camelCase filePath"
+        );
+        assert!(
+            json.get("findingType").is_some(),
+            "should have camelCase findingType"
+        );
         assert!(json.get("repo_id").is_none(), "should not have snake_case");
     }
 
