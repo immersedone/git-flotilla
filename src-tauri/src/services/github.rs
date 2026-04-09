@@ -67,6 +67,15 @@ pub struct GitHubBranch {
     pub is_protected: bool,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GitHubRelease {
+    pub tag_name: String,
+    pub name: Option<String>,
+    pub body: Option<String>,
+    pub published_at: Option<String>,
+    pub prerelease: bool,
+}
+
 // ── Pure helpers ───────────────────────────────────────────────────────────
 
 /// Extract OAuth scopes from the `X-OAuth-Scopes` response header.
@@ -291,6 +300,18 @@ impl GitHubClient {
         Ok((content, rate_limit))
     }
 
+    /// Fetch releases for a repo (single page, up to 100).
+    pub async fn list_releases(
+        &self,
+        owner: &str,
+        repo: &str,
+    ) -> AppResult<(Vec<GitHubRelease>, Option<RateLimitSnapshot>)> {
+        let path = format!("/repos/{owner}/{repo}/releases?per_page=100");
+        let (releases, headers): (Vec<GitHubRelease>, _) = self.get(&path).await?;
+        let rate_limit = extract_rate_limit(&headers);
+        Ok((releases, rate_limit))
+    }
+
     /// List all branches for a repo (paginated).
     pub async fn list_branches(
         &self,
@@ -444,6 +465,15 @@ mod tests {
         assert!(branches[0].is_protected);
         assert_eq!(branches[1].name, "develop");
         assert!(!branches[1].is_protected);
+    }
+
+    #[test]
+    fn deserialize_release_response() {
+        let json = r#"[{"tag_name":"v3.4.0","name":"3.4.0","body":"New feature","published_at":"2026-01-01T00:00:00Z","prerelease":false}]"#;
+        let releases: Vec<GitHubRelease> = serde_json::from_str(json).expect("parse");
+        assert_eq!(releases.len(), 1);
+        assert_eq!(releases[0].tag_name, "v3.4.0");
+        assert!(!releases[0].prerelease);
     }
 
     #[test]

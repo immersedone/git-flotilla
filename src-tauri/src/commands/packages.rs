@@ -1,7 +1,10 @@
 use crate::{
+    commands::auth::KEYCHAIN_SERVICE,
     db,
     error::{AppError, AppResult},
+    services::{changelog, github::GitHubClient, rate_limiter},
 };
+use keyring::Entry;
 use serde::Serialize;
 use sqlx::Row;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -237,8 +240,82 @@ pub async fn get_package_changelog(
     from_version: String,
     to_version: String,
 ) -> AppResult<Vec<ChangelogEntry>> {
-    let _ = (package_name, ecosystem, from_version, to_version);
-    Err(AppError::Operation("not implemented".into()))
+    if ecosystem != "npm" {
+        return Err(AppError::InvalidInput(format!(
+            "Changelog fetching is only supported for npm packages (got \"{ecosystem}\")"
+        )));
+    }
+
+    let http_client = reqwest::Client::builder()
+        .user_agent("git-flotilla/0.1")
+        .build()
+        .map_err(|e| AppError::Operation(format!("Failed to create HTTP client: {e}")))?;
+
+    // Resolve npm package -> GitHub repo
+    let (owner, repo) = changelog::npm_package_to_github_repo(&http_client, &package_name)
+        .await
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "Could not find a GitHub repository for npm package \"{package_name}\""
+            ))
+        })?;
+
+    tracing::info!("Resolved {package_name} -> {owner}/{repo}");
+
+    // Try to get an authenticated GitHub token
+    let pool = db::pool()?;
+    let maybe_account = sqlx::query("SELECT id FROM accounts WHERE provider = 'github' LIMIT 1")
+        .fetch_optional(pool)
+        .await?;
+
+    let releases = if let Some(account_row) = maybe_account {
+        let account_id: String = account_row.get("id");
+        let token = Entry::new(KEYCHAIN_SERVICE, &account_id)
+            .map_err(AppError::from)?
+            .get_password()
+            .map_err(|e| {
+                AppError::Keychain(format!("Failed to read token for {account_id}: {e}"))
+            })?;
+
+        let gh = GitHubClient::new(&token);
+        let (releases, rl) = gh.list_releases(&owner, &repo).await?;
+        if let Some(snapshot) = rl {
+            rate_limiter::update_github(snapshot);
+        }
+        releases
+    } else {
+        // Unauthenticated fallback
+        tracing::warn!("No GitHub account configured — using unauthenticated API request");
+        let url = format!("https://api.github.com/repos/{owner}/{repo}/releases?per_page=100");
+        let resp = http_client
+            .get(&url)
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .send()
+            .await
+            .map_err(|e| AppError::GitHub(format!("Failed to fetch releases: {e}")))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(AppError::GitHub(format!(
+                "GitHub API returned HTTP {status}: {text}"
+            )));
+        }
+
+        resp.json()
+            .await
+            .map_err(|e| AppError::GitHub(format!("Failed to parse releases: {e}")))?
+    };
+
+    let entries = changelog::releases_to_changelog(&releases, &from_version, &to_version);
+
+    tracing::info!(
+        "Changelog for {package_name} ({from_version} -> {to_version}): {} entries",
+        entries.len()
+    );
+
+    Ok(entries)
 }
 
 #[cfg(test)]
