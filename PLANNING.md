@@ -410,10 +410,70 @@
 
 ---
 
+## Remaining Items (v0.2+)
+
+Low-priority or requiring external integrations. Not blocking v0.1.0 release.
+
+| Category | Item | Notes |
+|----------|------|-------|
+| UI polish | Nested repo list tree UI | Data model supports it; UI shows flat list only |
+| UI polish | Dedicated tag filter dropdown | Text search covers tags, but no tag-specific filter |
+| UI polish | Scan diff (compare two scans) | Requires at least two scan results for same repo |
+| UI polish | Per-repo CVE summary badges on repo cards | CVE alerts view has full detail |
+| Scanning | Fingerprint profiles (user-defined "healthy repo" templates) | Health scoring works; user-configurable profiles deferred |
+| Scanning | Configurable scan interval UI | Scheduler runs hourly; Settings UI for interval not wired |
+| Scanning | Populate `lastPushed` from GitHub API `pushed_at` | Field exists but not filled from API response |
+| Operations | Actual `git commit` + `git push` via GitHub Contents API | API methods exist; wiring into operation engine pending |
+| Operations | Monorepo-aware package.json patching (patcher service) | Manifests detected; modification logic not implemented |
+| Operations | Pin-then-bump lifecycle tracking UI | Data model supports; no dedicated tracking UI |
+| PR workflow | Idempotent PR creation (detect→close→recreate) | API methods exist; orchestration in operation engine pending |
+| PR workflow | Divergence detection + multi-branch targeting | PR creation supports base branch; auto-detection not wired |
+| PR workflow | CODEOWNERS-based reviewer assignment | Requires parsing CODEOWNERS file |
+| Compliance | Licence lookup from npm/packagist registries | Lists packages with "unknown" licence; real lookup deferred |
+| Compliance | Licence allowlist/blocklist per repo list | |
+| Compliance | Trufflehog/gitleaks integration | Pattern-based scanner implemented; deep tool integration deferred |
+| Notifications | Webhook delivery (Slack/Teams/Discord) | In-app notifications work; external webhook delivery not implemented |
+| Notifications | Weekly digest export (JSON/CSV) | CSV report exports exist; automated weekly digest not scheduled |
+| Registry | Packagist/PyPI/crates.io latest version lookups | npm lookups implemented; other registries deferred |
+| Config | `.flotilla/repo-lists/*.yaml` auto-sync from directory | Manual YAML import/export works; directory watch not implemented |
+| Config | Per-repo operation overrides | |
+| GitLab | MR support in batch operations engine | API methods exist; not wired into operation execution |
+| GitLab | `.gitlab-ci.yml` scanning in scan_repo | Detection function exists; not called during scan (GitHub tree API only) |
+| Reporting | PDF export for health/compliance reports | CSV exports implemented; PDF deferred |
+| Superseded | Configurable superseded package list (e.g. `node-fetch` → native) | |
+| Matrix | JSON export of dependency matrix | CSV export works; JSON trivial to add |
+
+---
+
+## Design & UI
+
+### Current State
+The UI uses Tailwind CSS v4 with a dark-first design (light theme toggle available). All views are functional with data tables, forms, and expandable detail panels. The visual design is utilitarian — information-dense, monospace accents for code values, status communicated through colour.
+
+### Planned: Figma Design System
+A comprehensive design system will be created in Figma via Claude Code's MCP Figma integration at a later date. This will include:
+- Component library (buttons, inputs, badges, cards, tables, modals)
+- Layout templates for each major view
+- Colour token definitions (dark + light themes)
+- Typography scale
+- Icon set selection
+- Responsive breakpoint rules
+
+**Known issues to address in the design phase:**
+- Many views use hardcoded hex colour values (`bg-[#0F1117]`) instead of Tailwind design tokens — will need migration to token-based classes once the design system defines them
+- Light theme only swaps CSS custom properties on `<html>` — individual views don't yet use `dark:`/`light:` variant classes
+- No consistent spacing/sizing scale across views — each view was built independently
+- Component library (`src/components/ui/`) has shell components but views inline most UI patterns
+- No loading skeleton / shimmer states — views show plain "Loading..." text
+- Mobile/tablet responsive behaviour untested (min-width 1024px assumed)
+- No empty state illustrations — text-only empty states throughout
+
+---
+
 ## Open Questions
 
-- [ ] Should Flotilla support self-hosted GitHub Enterprise / GitLab instances? (likely yes — add base URL config)
+- [implemented] Should Flotilla support self-hosted GitHub Enterprise / GitLab instances? — Yes: GitLab client accepts configurable `base_url`; GitHub Enterprise support deferred
 - [ ] Should there be a cloud sync option for team config? (out of scope for v1)
-- [ ] Should the CLI be distributed separately from the GUI? (TBD — likely same binary with `--headless` flag)
+- [ ] Should the CLI be distributed separately from the GUI? (TBD — currently a second binary target in src-tauri)
 - [ ] Support for Bitbucket? (out of scope for v1, design with extensibility in mind)
 - [ ] Support for Gitea / Forgejo? (out of scope for v1)

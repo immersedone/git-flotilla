@@ -40,8 +40,7 @@ Built with Tauri, Rust, Vue 3, TypeScript, and Tailwind CSS.
 - Inventory workflow files, detect floating Action tags
 - Check for required files: `.env.example`, `CODEOWNERS`, `SECURITY.md`, `.editorconfig`
 - Health score (0–100) per repo based on configurable rules
-- Scan diff: see what changed since your last scan
-- **Incremental scan**: only re-check repos pushed since last scan
+- **Incremental scan**: only re-check repos pushed since last scan (planned)
 - **Rate limit awareness**: shows remaining API quota, auto-pauses when low
 - **Auto-exclude**: skips repos without relevant manifests (with reason)
 - Scheduled background scans
@@ -49,12 +48,12 @@ Built with Tauri, Rust, Vue 3, TypeScript, and Tailwind CSS.
 ### CVE Monitoring
 - Automatically checks CVEs after every scan
 - Hourly background polling (configurable: off / 15min / 1hr / 6hr / daily)
-- Sources: OSV.dev (primary), GitHub Advisory Database, NVD NIST
+- Source: OSV.dev (covers npm, composer, pip, cargo, go)
 - Matches CVEs against all detected packages across all repos
 - One-click "Patch affected repos" — creates a **pin** operation to lock the vulnerable package immediately
 - **Incident timeline**: unified view per CVE showing detection, PRs created, merge status across all repos
 - **Blast radius analysis**: dependency graph showing direct + transitive exposure to prioritise patching
-- **Rollback detection**: alerts if someone reverts a Flotilla security PR
+- **Rollback detection**: alerts if someone reverts a Flotilla security PR (planned)
 - CVE watchlist: subscribe to packages not yet in your repos
 - Severity badges: critical / high / medium / low
 
@@ -93,7 +92,7 @@ Built with Tauri, Rust, Vue 3, TypeScript, and Tailwind CSS.
 
 ### Custom Script Runner
 - Run arbitrary shell commands across N repos (clone → execute → collect output)
-- Live output streaming per repo
+- Aggregate results view per repo
 - Preset command library (e.g. `npx depcheck`, `npm outdated --json`)
 - Save custom commands as reusable presets
 
@@ -108,7 +107,7 @@ Built with Tauri, Rust, Vue 3, TypeScript, and Tailwind CSS.
 - Command palette (`Ctrl+K` / `Cmd+K`) for instant navigation
 - API rate limit indicator in top bar (remaining requests, reset time)
 - Full audit log of every action + downloadable per-operation logs
-- Webhook support: Slack, Teams, Discord
+- Webhook support: Slack, Teams, Discord (planned)
 - Weekly digest export (JSON/CSV)
 - CLI companion: `git-flotilla` binary for CI/scripting use
 
@@ -122,7 +121,7 @@ Built with Tauri, Rust, Vue 3, TypeScript, and Tailwind CSS.
 
 ### Download
 
-Download the latest release from the [Releases page](https://github.com/your-org/git-flotilla/releases).
+Download the latest release from the [Releases page](https://github.com/immersedone/git-flotilla/releases).
 
 | Platform | Format |
 |----------|--------|
@@ -135,7 +134,7 @@ Download the latest release from the [Releases page](https://github.com/your-org
 **Prerequisites:** Rust 1.78+, Node.js 20+, pnpm 9+
 
 ```bash
-git clone https://github.com/your-org/git-flotilla.git
+git clone https://github.com/immersedone/git-flotilla.git
 cd git-flotilla
 
 # Install frontend dependencies
@@ -210,9 +209,73 @@ Commit your `.flotilla/repo-lists/` directory (and `config.yaml` if appropriate)
 
 ---
 
+## Screenshots
+
+<details>
+<summary>Dashboard</summary>
+
+![Dashboard](docs/screenshots/dashboard.png)
+</details>
+
+<details>
+<summary>Repository Management</summary>
+
+![Repositories](docs/screenshots/repos.png)
+</details>
+
+<details>
+<summary>Scanner</summary>
+
+![Scanner](docs/screenshots/scanner.png)
+</details>
+
+<details>
+<summary>Package Intelligence</summary>
+
+![Packages](docs/screenshots/packages.png)
+</details>
+
+<details>
+<summary>CVE Alerts</summary>
+
+![CVE Alerts](docs/screenshots/cve-alerts.png)
+</details>
+
+<details>
+<summary>Batch Operations</summary>
+
+![Operations](docs/screenshots/operations.png)
+</details>
+
+<details>
+<summary>PR Merge Queue</summary>
+
+![Merge Queue](docs/screenshots/merge-queue.png)
+</details>
+
+<details>
+<summary>Script Runner</summary>
+
+![Script Runner](docs/screenshots/script-runner.png)
+</details>
+
+<details>
+<summary>Compliance</summary>
+
+![Compliance](docs/screenshots/compliance.png)
+</details>
+
+<details>
+<summary>Settings</summary>
+
+![Settings](docs/screenshots/settings.png)
+</details>
+
+---
+
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md). Please read [CLAUDE.md](./CLAUDE.md) if using AI assistance.
+Contributions welcome once the project has been battle-tested further. In the meantime, please read [CLAUDE.md](./CLAUDE.md) if using AI assistance on this codebase.
 
 ---
 
