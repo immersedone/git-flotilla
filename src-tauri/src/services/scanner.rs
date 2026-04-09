@@ -60,6 +60,21 @@ pub fn discover_workflows(tree: &GitHubTreeResponse) -> Vec<String> {
         .collect()
 }
 
+/// Discover GitLab CI configuration files from a tree.
+/// Looks for `.gitlab-ci.yml` and any `*.yml` files in a `.gitlab/` directory.
+pub fn discover_gitlab_ci(tree: &GitHubTreeResponse) -> Vec<String> {
+    tree.tree
+        .iter()
+        .filter(|entry| entry.entry_type == "blob")
+        .filter(|entry| {
+            entry.path == ".gitlab-ci.yml"
+                || (entry.path.starts_with(".gitlab/")
+                    && (entry.path.ends_with(".yml") || entry.path.ends_with(".yaml")))
+        })
+        .map(|entry| entry.path.clone())
+        .collect()
+}
+
 /// Check if a specific file exists in the tree.
 pub fn file_exists(tree: &GitHubTreeResponse, path: &str) -> bool {
     tree.tree.iter().any(|entry| entry.path == path)
@@ -207,6 +222,186 @@ pub fn parse_composer_json(content: &str, repo_id: &str) -> Vec<RepoPackage> {
                         scanned_at: now.clone(),
                     });
                 }
+            }
+        }
+    }
+
+    packages
+}
+
+/// Parse a `requirements.txt` and extract Python packages.
+/// Handles lines like `flask==2.3.0`, `requests>=2.28`, `numpy~=1.24`.
+/// Skips comments, blank lines, and flag lines (`-r`, `-e`, `-f`, `--`).
+pub fn parse_requirements_txt(content: &str, repo_id: &str) -> Vec<RepoPackage> {
+    let mut packages = Vec::new();
+    let now = Utc::now().to_rfc3339();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        // Skip empty lines and comments
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+
+        // Skip flag lines: -r, -e, -f, -c, -i, --index-url, --extra-index-url, etc.
+        if trimmed.starts_with('-') {
+            continue;
+        }
+
+        // Parse name and version specifier
+        // Version specifiers start with one of: ==, !=, >=, <=, ~=, >, <
+        let split_pos = trimmed.find(['=', '!', '>', '<', '~']);
+
+        let (name, version) = match split_pos {
+            Some(pos) => {
+                let name = trimmed[..pos].trim();
+                let version = trimmed[pos..].trim();
+                (name, version)
+            }
+            None => {
+                // No version specifier, e.g. just "flask"
+                (trimmed, "")
+            }
+        };
+
+        // Strip extras brackets from name for cleaner output: "package[extra]" → "package"
+        let clean_name = match name.find('[') {
+            Some(bracket_pos) => &name[..bracket_pos],
+            None => name,
+        };
+
+        if clean_name.is_empty() {
+            continue;
+        }
+
+        packages.push(RepoPackage {
+            repo_id: repo_id.to_string(),
+            ecosystem: "pip".to_string(),
+            name: clean_name.to_string(),
+            version: version.to_string(),
+            is_dev: false,
+            scanned_at: now.clone(),
+        });
+    }
+
+    packages
+}
+
+/// Parse a `Cargo.toml` and extract `[dependencies]` and `[dev-dependencies]`.
+/// Handles both string versions (`serde = "1.0"`) and table versions
+/// (`serde = { version = "1.0", features = [...] }`).
+pub fn parse_cargo_toml(content: &str, repo_id: &str) -> Vec<RepoPackage> {
+    let mut packages = Vec::new();
+    let now = Utc::now().to_rfc3339();
+
+    let doc: toml::Value = match toml::from_str(content) {
+        Ok(v) => v,
+        Err(_) => return packages,
+    };
+
+    // Helper closure to extract deps from a TOML table
+    let mut extract_deps = |table_key: &str, is_dev: bool| {
+        if let Some(deps) = doc.get(table_key).and_then(|d| d.as_table()) {
+            for (name, value) in deps {
+                let version = match value {
+                    toml::Value::String(v) => v.clone(),
+                    toml::Value::Table(t) => t
+                        .get("version")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    _ => continue,
+                };
+
+                packages.push(RepoPackage {
+                    repo_id: repo_id.to_string(),
+                    ecosystem: "cargo".to_string(),
+                    name: name.clone(),
+                    version,
+                    is_dev,
+                    scanned_at: now.clone(),
+                });
+            }
+        }
+    };
+
+    extract_deps("dependencies", false);
+    extract_deps("dev-dependencies", true);
+
+    packages
+}
+
+/// Parse a `go.mod` file and extract `require` dependencies.
+/// Handles both single-line `require` directives and multi-line `require ( ... )` blocks.
+pub fn parse_go_mod(content: &str, repo_id: &str) -> Vec<RepoPackage> {
+    let mut packages = Vec::new();
+    let now = Utc::now().to_rfc3339();
+    let mut in_require_block = false;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        // Skip comments
+        if trimmed.starts_with("//") {
+            continue;
+        }
+
+        // Detect start of require block
+        if trimmed.starts_with("require (") || trimmed == "require(" {
+            in_require_block = true;
+            continue;
+        }
+
+        // Detect end of require block
+        if in_require_block && trimmed == ")" {
+            in_require_block = false;
+            continue;
+        }
+
+        if in_require_block {
+            // Lines inside require block: "github.com/gin-gonic/gin v1.9.0"
+            // Strip inline comments
+            let without_comment = match trimmed.find("//") {
+                Some(pos) => trimmed[..pos].trim(),
+                None => trimmed,
+            };
+
+            let parts: Vec<&str> = without_comment.split_whitespace().collect();
+            if parts.len() >= 2 {
+                packages.push(RepoPackage {
+                    repo_id: repo_id.to_string(),
+                    ecosystem: "go".to_string(),
+                    name: parts[0].to_string(),
+                    version: parts[1].to_string(),
+                    is_dev: false,
+                    scanned_at: now.clone(),
+                });
+            }
+        } else if let Some(rest) = trimmed.strip_prefix("require ") {
+            // Single-line require: "require github.com/foo/bar v1.0.0"
+            let rest = rest.trim();
+            // Skip if it's the start of a block (handled above for "require (")
+            if rest.starts_with('(') {
+                in_require_block = true;
+                continue;
+            }
+
+            let without_comment = match rest.find("//") {
+                Some(pos) => rest[..pos].trim(),
+                None => rest,
+            };
+
+            let parts: Vec<&str> = without_comment.split_whitespace().collect();
+            if parts.len() >= 2 {
+                packages.push(RepoPackage {
+                    repo_id: repo_id.to_string(),
+                    ecosystem: "go".to_string(),
+                    name: parts[0].to_string(),
+                    version: parts[1].to_string(),
+                    is_dev: false,
+                    scanned_at: now.clone(),
+                });
             }
         }
     }
@@ -494,6 +689,28 @@ mod tests {
     }
 
     #[test]
+    fn discover_gitlab_ci_finds_config() {
+        let tree = make_tree(&[
+            ".gitlab-ci.yml",
+            ".gitlab/ci/deploy.yml",
+            ".gitlab/ci/test.yaml",
+            "src/main.rs",
+        ]);
+        let ci_files = discover_gitlab_ci(&tree);
+        assert_eq!(ci_files.len(), 3);
+        assert!(ci_files.contains(&".gitlab-ci.yml".to_string()));
+        assert!(ci_files.contains(&".gitlab/ci/deploy.yml".to_string()));
+        assert!(ci_files.contains(&".gitlab/ci/test.yaml".to_string()));
+    }
+
+    #[test]
+    fn discover_gitlab_ci_empty_when_absent() {
+        let tree = make_tree(&[".github/workflows/ci.yml", "package.json"]);
+        let ci_files = discover_gitlab_ci(&tree);
+        assert!(ci_files.is_empty());
+    }
+
+    #[test]
     fn file_exists_works() {
         let tree = make_tree(&["CODEOWNERS", "SECURITY.md", "src/main.rs"]);
         assert!(file_exists(&tree, "CODEOWNERS"));
@@ -713,5 +930,146 @@ jobs:
         // Only the unconditional +20 for dependencies
         assert_eq!(score, 20);
         assert_eq!(flags.len(), 7);
+    }
+
+    // ── requirements.txt Tests ───────────────────────────────────────────
+
+    #[test]
+    fn parse_requirements_txt_basic() {
+        let content = "flask==2.3.0\nrequests>=2.28\n# comment\nnumpy~=1.24\n";
+        let pkgs = parse_requirements_txt(content, "repo1");
+        assert_eq!(pkgs.len(), 3);
+        assert_eq!(pkgs[0].name, "flask");
+        assert_eq!(pkgs[0].version, "==2.3.0");
+        assert_eq!(pkgs[0].ecosystem, "pip");
+    }
+
+    #[test]
+    fn parse_requirements_txt_skips_flags() {
+        let content = "-r base.txt\n-e git+https://...\nflask==1.0\n--index-url https://...\n";
+        let pkgs = parse_requirements_txt(content, "repo1");
+        assert_eq!(pkgs.len(), 1);
+    }
+
+    #[test]
+    fn parse_requirements_txt_extras() {
+        let content = "requests[security]==2.28.0\ncelery[redis]>=5.0\n";
+        let pkgs = parse_requirements_txt(content, "repo1");
+        assert_eq!(pkgs.len(), 2);
+        assert_eq!(pkgs[0].name, "requests");
+        assert_eq!(pkgs[0].version, "==2.28.0");
+        assert_eq!(pkgs[1].name, "celery");
+    }
+
+    #[test]
+    fn parse_requirements_txt_no_version() {
+        let content = "flask\nrequests\n";
+        let pkgs = parse_requirements_txt(content, "repo1");
+        assert_eq!(pkgs.len(), 2);
+        assert_eq!(pkgs[0].name, "flask");
+        assert_eq!(pkgs[0].version, "");
+    }
+
+    // ── Cargo.toml Tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn parse_cargo_toml_deps() {
+        let content = r#"
+[dependencies]
+serde = "1.0"
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+tempfile = "3"
+"#;
+        let pkgs = parse_cargo_toml(content, "repo1");
+        assert_eq!(pkgs.len(), 3);
+        let serde = pkgs.iter().find(|p| p.name == "serde").unwrap();
+        assert_eq!(serde.version, "1.0");
+        assert!(!serde.is_dev);
+        let tempfile = pkgs.iter().find(|p| p.name == "tempfile").unwrap();
+        assert!(tempfile.is_dev);
+    }
+
+    #[test]
+    fn parse_cargo_toml_empty() {
+        let content = r#"
+[package]
+name = "myapp"
+version = "0.1.0"
+"#;
+        let pkgs = parse_cargo_toml(content, "repo1");
+        assert!(pkgs.is_empty());
+    }
+
+    #[test]
+    fn parse_cargo_toml_invalid() {
+        let pkgs = parse_cargo_toml("not valid toml {{{{", "repo1");
+        assert!(pkgs.is_empty());
+    }
+
+    // ── go.mod Tests ─────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_go_mod_require_block() {
+        let content = r#"
+module example.com/myapp
+
+go 1.21
+
+require (
+    github.com/gin-gonic/gin v1.9.0
+    github.com/stretchr/testify v1.8.4
+)
+"#;
+        let pkgs = parse_go_mod(content, "repo1");
+        assert_eq!(pkgs.len(), 2);
+        assert_eq!(pkgs[0].name, "github.com/gin-gonic/gin");
+        assert_eq!(pkgs[0].version, "v1.9.0");
+        assert_eq!(pkgs[0].ecosystem, "go");
+    }
+
+    #[test]
+    fn parse_go_mod_single_require() {
+        let content = r#"
+module example.com/myapp
+
+go 1.21
+
+require github.com/gin-gonic/gin v1.9.0
+"#;
+        let pkgs = parse_go_mod(content, "repo1");
+        assert_eq!(pkgs.len(), 1);
+        assert_eq!(pkgs[0].name, "github.com/gin-gonic/gin");
+        assert_eq!(pkgs[0].version, "v1.9.0");
+    }
+
+    #[test]
+    fn parse_go_mod_with_indirect() {
+        let content = r#"
+module example.com/myapp
+
+go 1.21
+
+require (
+    github.com/gin-gonic/gin v1.9.0
+    golang.org/x/text v0.14.0 // indirect
+)
+"#;
+        let pkgs = parse_go_mod(content, "repo1");
+        assert_eq!(pkgs.len(), 2);
+        assert_eq!(pkgs[1].name, "golang.org/x/text");
+        assert_eq!(pkgs[1].version, "v0.14.0");
+    }
+
+    #[test]
+    fn parse_go_mod_empty() {
+        let content = r#"
+module example.com/myapp
+
+go 1.21
+"#;
+        let pkgs = parse_go_mod(content, "repo1");
+        assert!(pkgs.is_empty());
     }
 }

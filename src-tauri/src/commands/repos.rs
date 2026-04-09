@@ -556,11 +556,233 @@ pub async fn import_repo_list(yaml: String) -> AppResult<RepoList> {
     get_list_by_id(pool, &parsed.id).await
 }
 
+// ── Repo Similarity Clustering ─────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoCluster {
+    pub label: String,
+    pub repos: Vec<String>,
+    pub fingerprint: ClusterFingerprint,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClusterFingerprint {
+    pub package_manager: Option<String>,
+    pub node_version: Option<String>,
+    pub key_packages: Vec<String>,
+}
+
+/// Group repos by tech stack fingerprint (package_manager, major_node_version)
+/// and find shared key packages within each group.
+#[tauri::command]
+pub async fn get_repo_clusters() -> AppResult<Vec<RepoCluster>> {
+    let pool = db::pool()?;
+
+    // Fetch latest scan result per repo
+    let scan_rows = sqlx::query(
+        r#"
+        SELECT s.repo_id, s.package_manager, s.node_version
+        FROM scan_results s
+        WHERE s.scanned_at = (
+            SELECT MAX(s2.scanned_at) FROM scan_results s2 WHERE s2.repo_id = s.repo_id
+        )
+        ORDER BY s.repo_id
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    // Build groups keyed by (package_manager, major_node_version)
+    let mut groups: std::collections::HashMap<(String, String), Vec<String>> =
+        std::collections::HashMap::new();
+    let mut node_versions: std::collections::HashMap<String, Option<String>> =
+        std::collections::HashMap::new();
+
+    for row in &scan_rows {
+        let repo_id: String = row.get("repo_id");
+        let pm: Option<String> = row.get("package_manager");
+        let nv: Option<String> = row.get("node_version");
+
+        let pm_key = pm.clone().unwrap_or_else(|| "none".to_string());
+        let nv_major = nv
+            .as_deref()
+            .and_then(|v| v.split('.').next())
+            .unwrap_or("unknown")
+            .to_string();
+
+        node_versions.insert(repo_id.clone(), nv);
+        groups.entry((pm_key, nv_major)).or_default().push(repo_id);
+    }
+
+    // Fetch packages for all repos to find shared key packages per cluster
+    let pkg_rows = sqlx::query(
+        r#"
+        SELECT p.repo_id, p.name
+        FROM packages p
+        WHERE p.scanned_at = (
+            SELECT MAX(p2.scanned_at) FROM packages p2
+            WHERE p2.repo_id = p.repo_id AND p2.ecosystem = p.ecosystem AND p2.name = p.name
+        )
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let mut repo_packages: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for row in &pkg_rows {
+        let repo_id: String = row.get("repo_id");
+        let name: String = row.get("name");
+        repo_packages.entry(repo_id).or_default().push(name);
+    }
+
+    // Build clusters
+    let mut clusters: Vec<RepoCluster> = Vec::new();
+
+    for ((pm, nv_major), repo_ids) in &groups {
+        // Find top 3 shared packages by frequency within the group
+        let mut pkg_freq: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+        for repo_id in repo_ids {
+            if let Some(packages) = repo_packages.get(repo_id) {
+                // Deduplicate per repo to count each package at most once per repo
+                let unique: HashSet<&str> = packages.iter().map(|s| s.as_str()).collect();
+                for pkg in unique {
+                    *pkg_freq.entry(pkg).or_insert(0) += 1;
+                }
+            }
+        }
+        let mut freq_vec: Vec<(&&str, &usize)> = pkg_freq.iter().collect();
+        freq_vec.sort_by(|a, b| b.1.cmp(a.1));
+        let key_packages: Vec<String> = freq_vec
+            .iter()
+            .take(3)
+            .map(|(name, _)| (**name).to_string())
+            .collect();
+
+        let pm_display = if pm == "none" { None } else { Some(pm.clone()) };
+        let nv_display = if nv_major == "unknown" {
+            None
+        } else {
+            Some(nv_major.clone())
+        };
+
+        // Build human-readable label
+        let label =
+            build_cluster_label(pm_display.as_deref(), nv_display.as_deref(), &key_packages);
+
+        clusters.push(RepoCluster {
+            label,
+            repos: repo_ids.clone(),
+            fingerprint: ClusterFingerprint {
+                package_manager: pm_display,
+                node_version: nv_display,
+                key_packages,
+            },
+        });
+    }
+
+    // Sort by cluster size, largest first
+    clusters.sort_by(|a, b| b.repos.len().cmp(&a.repos.len()));
+
+    Ok(clusters)
+}
+
+fn build_cluster_label(
+    pm: Option<&str>,
+    node_major: Option<&str>,
+    key_packages: &[String],
+) -> String {
+    let mut parts = Vec::new();
+
+    // Add key framework packages first (e.g. "Laravel", "Vue")
+    for pkg in key_packages.iter().take(2) {
+        let display = match pkg.as_str() {
+            "vue" | "vue-router" => "Vue",
+            "react" | "react-dom" => "React",
+            "next" => "Next.js",
+            "nuxt" | "nuxt3" => "Nuxt",
+            "laravel/framework" => "Laravel",
+            "express" => "Express",
+            "svelte" => "Svelte",
+            "angular" | "@angular/core" => "Angular",
+            _ => "",
+        };
+        if !display.is_empty() && !parts.contains(&display.to_string()) {
+            parts.push(display.to_string());
+        }
+    }
+
+    // Add package manager
+    if let Some(pm) = pm {
+        parts.push(format!("({})", pm));
+    }
+
+    // Add Node major version if present
+    if let Some(nv) = node_major {
+        parts.push(format!("Node {}", nv));
+    }
+
+    if parts.is_empty() {
+        "Unknown stack".to_string()
+    } else {
+        parts.join(" + ")
+    }
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn repo_cluster_serialises_camel_case() {
+        let cluster = RepoCluster {
+            label: "Vue + (pnpm) + Node 20".to_string(),
+            repos: vec!["github:org/repo-a".to_string()],
+            fingerprint: ClusterFingerprint {
+                package_manager: Some("pnpm".to_string()),
+                node_version: Some("20".to_string()),
+                key_packages: vec!["vue".to_string(), "pinia".to_string()],
+            },
+        };
+        let json = serde_json::to_string(&cluster).expect("serialize");
+        assert!(
+            json.contains("\"packageManager\""),
+            "expected camelCase: {json}"
+        );
+        assert!(
+            json.contains("\"nodeVersion\""),
+            "expected camelCase: {json}"
+        );
+        assert!(
+            json.contains("\"keyPackages\""),
+            "expected camelCase: {json}"
+        );
+    }
+
+    #[test]
+    fn build_cluster_label_with_framework() {
+        let label = build_cluster_label(
+            Some("npm"),
+            Some("20"),
+            &["vue".to_string(), "pinia".to_string()],
+        );
+        assert!(label.contains("Vue"), "label should mention Vue: {label}");
+        assert!(label.contains("(npm)"), "label should mention npm: {label}");
+        assert!(
+            label.contains("Node 20"),
+            "label should mention Node 20: {label}"
+        );
+    }
+
+    #[test]
+    fn build_cluster_label_unknown_stack() {
+        let label = build_cluster_label(None, None, &[]);
+        assert_eq!(label, "Unknown stack");
+    }
 
     #[test]
     fn gen_id_is_nonempty() {

@@ -1,6 +1,6 @@
 use crate::error::{AppError, AppResult};
 use reqwest::header::HeaderMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 // ── Response models ────────────────────────────────────────────────────────
 
@@ -211,6 +211,92 @@ impl GitLabClient {
         }
         Ok((all, last_rl))
     }
+
+    // ── POST helper ───────────────────────────────────────────────────────
+
+    async fn post_json<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &impl serde::Serialize,
+    ) -> AppResult<(T, HeaderMap)> {
+        let url = format!("{}{}", self.base_url, path);
+        let resp = self
+            .client
+            .post(&url)
+            .headers(self.auth_headers()?)
+            .json(body)
+            .send()
+            .await
+            .map_err(|e| AppError::GitLab(e.to_string()))?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            return match status.as_u16() {
+                401 => Err(AppError::Auth(format!("Invalid GitLab token: {text}"))),
+                403 => Err(AppError::RateLimit(format!(
+                    "GitLab rate limited or forbidden: {text}"
+                ))),
+                404 => Err(AppError::NotFound(format!("GitLab not found: {path}"))),
+                _ => Err(AppError::GitLab(format!("HTTP {status}: {text}"))),
+            };
+        }
+
+        let headers = resp.headers().clone();
+        let body = resp
+            .json::<T>()
+            .await
+            .map_err(|e| AppError::GitLab(e.to_string()))?;
+        Ok((body, headers))
+    }
+
+    // ── Merge Request operations ─────────────────────────────────────────
+
+    /// Create a merge request on a GitLab project.
+    pub async fn create_merge_request(
+        &self,
+        project_id: u64,
+        title: &str,
+        description: &str,
+        source_branch: &str,
+        target_branch: &str,
+    ) -> AppResult<(GitLabMergeRequest, Option<GitLabRateLimitSnapshot>)> {
+        let body = serde_json::json!({
+            "title": title,
+            "description": description,
+            "source_branch": source_branch,
+            "target_branch": target_branch,
+        });
+
+        let path = format!("/projects/{}/merge_requests", project_id);
+        let (mr, headers): (GitLabMergeRequest, _) = self.post_json(&path, &body).await?;
+        let rate_limit = extract_gitlab_rate_limit(&headers);
+        Ok((mr, rate_limit))
+    }
+
+    /// List merge requests for a project, optionally filtered by state.
+    pub async fn list_merge_requests(
+        &self,
+        project_id: u64,
+        state: Option<&str>,
+    ) -> AppResult<(Vec<GitLabMergeRequest>, Option<GitLabRateLimitSnapshot>)> {
+        let mut path = format!("/projects/{}/merge_requests?per_page=100", project_id);
+        if let Some(s) = state {
+            path.push_str(&format!("&state={}", s));
+        }
+        let (mrs, headers): (Vec<GitLabMergeRequest>, _) = self.get(&path).await?;
+        let rate_limit = extract_gitlab_rate_limit(&headers);
+        Ok((mrs, rate_limit))
+    }
+}
+
+/// A GitLab merge request (subset of fields).
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GitLabMergeRequest {
+    pub iid: u64,
+    pub web_url: String,
+    pub state: String,
+    pub title: String,
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────
@@ -345,5 +431,36 @@ mod tests {
             Some("https://gitlab.example.com/api/v4".to_string()),
         );
         assert_eq!(client.base_url, "https://gitlab.example.com/api/v4");
+    }
+
+    #[test]
+    fn deserialize_gitlab_merge_request() {
+        let json = r#"{
+            "iid": 42,
+            "web_url": "https://gitlab.com/my-org/my-project/-/merge_requests/42",
+            "state": "opened",
+            "title": "Fix security vulnerability"
+        }"#;
+        let mr: GitLabMergeRequest = serde_json::from_str(json).expect("parse MR");
+        assert_eq!(mr.iid, 42);
+        assert_eq!(
+            mr.web_url,
+            "https://gitlab.com/my-org/my-project/-/merge_requests/42"
+        );
+        assert_eq!(mr.state, "opened");
+        assert_eq!(mr.title, "Fix security vulnerability");
+    }
+
+    #[test]
+    fn deserialize_gitlab_merge_request_merged() {
+        let json = r#"{
+            "iid": 99,
+            "web_url": "https://gitlab.com/org/repo/-/merge_requests/99",
+            "state": "merged",
+            "title": "Bump deps"
+        }"#;
+        let mr: GitLabMergeRequest = serde_json::from_str(json).expect("parse MR");
+        assert_eq!(mr.iid, 99);
+        assert_eq!(mr.state, "merged");
     }
 }

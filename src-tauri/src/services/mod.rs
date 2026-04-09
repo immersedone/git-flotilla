@@ -1,4 +1,5 @@
 pub mod changelog;
+pub mod config;
 pub mod cve_scraper;
 pub mod github;
 pub mod gitlab;

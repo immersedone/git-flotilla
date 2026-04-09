@@ -55,3 +55,19 @@ export function exportRepoList(id: string): Promise<string> {
 export function importRepoList(yaml: string): Promise<RepoList> {
   return invoke('import_repo_list', { yaml })
 }
+
+export interface ClusterFingerprint {
+  packageManager: string | null
+  nodeVersion: string | null
+  keyPackages: string[]
+}
+
+export interface RepoCluster {
+  label: string
+  repos: string[]
+  fingerprint: ClusterFingerprint
+}
+
+export function getRepoClusters(): Promise<RepoCluster[]> {
+  return invoke('get_repo_clusters')
+}

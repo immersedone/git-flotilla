@@ -76,6 +76,39 @@ pub struct GitHubRelease {
     pub prerelease: bool,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GitHubPullRequest {
+    pub number: u64,
+    pub html_url: String,
+    pub state: String,
+    pub title: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GitHubRefObject {
+    pub sha: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GitHubRef {
+    #[serde(rename = "ref")]
+    pub ref_name: String,
+    pub object: GitHubRefObject,
+}
+
+/// Response from the Contents API PUT (create or update file).
+#[derive(Debug, Deserialize)]
+pub struct GitHubContentWriteResponse {
+    pub content: GitHubContentResponseSummary,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GitHubContentResponseSummary {
+    pub name: String,
+    pub path: String,
+    pub sha: String,
+}
+
 // ── Pure helpers ───────────────────────────────────────────────────────────
 
 /// Extract OAuth scopes from the `X-OAuth-Scopes` response header.
@@ -198,6 +231,138 @@ impl GitHubClient {
         let headers = resp.headers().clone();
         let body = resp.json::<T>().await?;
         Ok((body, headers))
+    }
+
+    async fn post<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &impl serde::Serialize,
+    ) -> AppResult<(T, HeaderMap)> {
+        let url = format!("https://api.github.com{path}");
+        let resp = self
+            .client
+            .post(&url)
+            .headers(self.auth_headers()?)
+            .json(body)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            return match status.as_u16() {
+                401 => Err(AppError::Auth(format!("Invalid token: {text}"))),
+                403 => Err(AppError::RateLimit(format!(
+                    "Rate limited or forbidden: {text}"
+                ))),
+                404 => Err(AppError::NotFound(format!("Not found: {path}"))),
+                422 => Err(AppError::GitHub(format!("Validation failed: {text}"))),
+                _ => Err(AppError::GitHub(format!("HTTP {status}: {text}"))),
+            };
+        }
+        let headers = resp.headers().clone();
+        let parsed = resp.json::<T>().await?;
+        Ok((parsed, headers))
+    }
+
+    async fn put<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &impl serde::Serialize,
+    ) -> AppResult<(T, HeaderMap)> {
+        let url = format!("https://api.github.com{path}");
+        let resp = self
+            .client
+            .put(&url)
+            .headers(self.auth_headers()?)
+            .json(body)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            return match status.as_u16() {
+                401 => Err(AppError::Auth(format!("Invalid token: {text}"))),
+                403 => Err(AppError::RateLimit(format!(
+                    "Rate limited or forbidden: {text}"
+                ))),
+                404 => Err(AppError::NotFound(format!("Not found: {path}"))),
+                409 => Err(AppError::GitHub(format!(
+                    "Conflict (SHA mismatch?): {text}"
+                ))),
+                422 => Err(AppError::GitHub(format!("Validation failed: {text}"))),
+                _ => Err(AppError::GitHub(format!("HTTP {status}: {text}"))),
+            };
+        }
+        let headers = resp.headers().clone();
+        let parsed = resp.json::<T>().await?;
+        Ok((parsed, headers))
+    }
+
+    async fn patch_no_body_parse(
+        &self,
+        path: &str,
+        body: &impl serde::Serialize,
+    ) -> AppResult<HeaderMap> {
+        let url = format!("https://api.github.com{path}");
+        let resp = self
+            .client
+            .patch(&url)
+            .headers(self.auth_headers()?)
+            .json(body)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            return Err(AppError::GitHub(format!("HTTP {status}: {text}")));
+        }
+        Ok(resp.headers().clone())
+    }
+
+    async fn post_no_body_parse(
+        &self,
+        path: &str,
+        body: &impl serde::Serialize,
+    ) -> AppResult<HeaderMap> {
+        let url = format!("https://api.github.com{path}");
+        let resp = self
+            .client
+            .post(&url)
+            .headers(self.auth_headers()?)
+            .json(body)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            return Err(AppError::GitHub(format!("HTTP {status}: {text}")));
+        }
+        Ok(resp.headers().clone())
+    }
+
+    async fn delete_ref(&self, path: &str) -> AppResult<HeaderMap> {
+        let url = format!("https://api.github.com{path}");
+        let resp = self
+            .client
+            .delete(&url)
+            .headers(self.auth_headers()?)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            return match status.as_u16() {
+                404 => Err(AppError::NotFound(format!("Not found: {path}"))),
+                422 => Err(AppError::GitHub(format!("Validation failed: {text}"))),
+                _ => Err(AppError::GitHub(format!("HTTP {status}: {text}"))),
+            };
+        }
+        Ok(resp.headers().clone())
     }
 
     /// Fetch authenticated user info and their granted scopes.
@@ -333,6 +498,176 @@ impl GitHubClient {
             page += 1;
         }
         Ok((all, last_rl))
+    }
+
+    // ── Branch management ─────────────────────────────────────────────────
+
+    /// Get the SHA of a branch's HEAD commit.
+    pub async fn get_branch_sha(
+        &self,
+        owner: &str,
+        repo: &str,
+        branch: &str,
+    ) -> AppResult<(String, Option<RateLimitSnapshot>)> {
+        let path = format!("/repos/{owner}/{repo}/git/ref/heads/{branch}");
+        let (git_ref, headers): (GitHubRef, _) = self.get(&path).await?;
+        let rate_limit = extract_rate_limit(&headers);
+        Ok((git_ref.object.sha, rate_limit))
+    }
+
+    /// Create a new branch from a given SHA.
+    pub async fn create_branch(
+        &self,
+        owner: &str,
+        repo: &str,
+        branch_name: &str,
+        from_sha: &str,
+    ) -> AppResult<Option<RateLimitSnapshot>> {
+        let path = format!("/repos/{owner}/{repo}/git/refs");
+        let body = serde_json::json!({
+            "ref": format!("refs/heads/{branch_name}"),
+            "sha": from_sha,
+        });
+        let (_ref_resp, headers): (GitHubRef, _) = self.post(&path, &body).await?;
+        Ok(extract_rate_limit(&headers))
+    }
+
+    /// Delete a branch (ref) from a repo.
+    pub async fn delete_branch(
+        &self,
+        owner: &str,
+        repo: &str,
+        branch: &str,
+    ) -> AppResult<Option<RateLimitSnapshot>> {
+        let path = format!("/repos/{owner}/{repo}/git/refs/heads/{branch}");
+        let headers = self.delete_ref(&path).await?;
+        Ok(extract_rate_limit(&headers))
+    }
+
+    // ── File operations ───────────────────────────────────────────────────
+
+    /// Create or update a file in a repo via the Contents API.
+    ///
+    /// The `content` parameter should be raw content (will be base64-encoded).
+    /// Pass `sha` of the existing file when updating; `None` when creating.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_or_update_file(
+        &self,
+        owner: &str,
+        repo: &str,
+        path: &str,
+        content: &str,
+        message: &str,
+        branch: &str,
+        sha: Option<&str>,
+    ) -> AppResult<(GitHubContentWriteResponse, Option<RateLimitSnapshot>)> {
+        let encoded = base64::engine::general_purpose::STANDARD.encode(content.as_bytes());
+        let api_path = format!("/repos/{owner}/{repo}/contents/{path}");
+
+        let mut body = serde_json::json!({
+            "message": message,
+            "content": encoded,
+            "branch": branch,
+        });
+
+        if let Some(existing_sha) = sha {
+            body.as_object_mut()
+                .expect("json! always creates an object")
+                .insert(
+                    "sha".to_string(),
+                    serde_json::Value::String(existing_sha.to_string()),
+                );
+        }
+
+        let (resp, headers): (GitHubContentWriteResponse, _) = self.put(&api_path, &body).await?;
+        Ok((resp, extract_rate_limit(&headers)))
+    }
+
+    // ── Pull request operations ───────────────────────────────────────────
+
+    /// Create a pull request.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_pull_request(
+        &self,
+        owner: &str,
+        repo: &str,
+        title: &str,
+        body: &str,
+        head: &str,
+        base: &str,
+        draft: bool,
+        labels: &[String],
+    ) -> AppResult<(GitHubPullRequest, Option<RateLimitSnapshot>)> {
+        let path = format!("/repos/{owner}/{repo}/pulls");
+        let pr_body = serde_json::json!({
+            "title": title,
+            "body": body,
+            "head": head,
+            "base": base,
+            "draft": draft,
+        });
+
+        let (pr, headers): (GitHubPullRequest, _) = self.post(&path, &pr_body).await?;
+        let rate_limit = extract_rate_limit(&headers);
+
+        // Add labels if any were provided
+        if !labels.is_empty() {
+            let labels_path = format!("/repos/{owner}/{repo}/issues/{}/labels", pr.number);
+            let labels_body = serde_json::json!({ "labels": labels });
+            // Best-effort label assignment — don't fail the whole operation if labelling fails
+            if let Err(e) = self.post_no_body_parse(&labels_path, &labels_body).await {
+                tracing::warn!("Failed to add labels to PR #{}: {e}", pr.number);
+            }
+        }
+
+        Ok((pr, rate_limit))
+    }
+
+    /// Close a pull request, optionally leaving a comment.
+    pub async fn close_pull_request(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: u64,
+        comment: Option<&str>,
+    ) -> AppResult<Option<RateLimitSnapshot>> {
+        // Post comment first if provided
+        if let Some(text) = comment {
+            let comment_path = format!("/repos/{owner}/{repo}/issues/{pr_number}/comments");
+            let comment_body = serde_json::json!({ "body": text });
+            if let Err(e) = self.post_no_body_parse(&comment_path, &comment_body).await {
+                tracing::warn!("Failed to comment on PR #{pr_number}: {e}");
+            }
+        }
+
+        // Close the PR
+        let path = format!("/repos/{owner}/{repo}/pulls/{pr_number}");
+        let body = serde_json::json!({ "state": "closed" });
+        let headers = self.patch_no_body_parse(&path, &body).await?;
+        Ok(extract_rate_limit(&headers))
+    }
+
+    /// List pull requests, optionally filtered by head branch and state.
+    pub async fn list_pull_requests(
+        &self,
+        owner: &str,
+        repo: &str,
+        head: Option<&str>,
+        state: Option<&str>,
+    ) -> AppResult<(Vec<GitHubPullRequest>, Option<RateLimitSnapshot>)> {
+        let mut query_parts = vec![format!("per_page=100")];
+        if let Some(h) = head {
+            // GitHub expects head in "owner:branch" format
+            query_parts.push(format!("head={owner}:{h}"));
+        }
+        if let Some(s) = state {
+            query_parts.push(format!("state={s}"));
+        }
+        let query = query_parts.join("&");
+        let path = format!("/repos/{owner}/{repo}/pulls?{query}");
+        let (prs, headers): (Vec<GitHubPullRequest>, _) = self.get(&path).await?;
+        let rate_limit = extract_rate_limit(&headers);
+        Ok((prs, rate_limit))
     }
 }
 
@@ -491,5 +826,76 @@ mod tests {
         let encoded = "SGVsbG8s\nIFdvcmxk\nIQ==\n";
         let decoded = decode_base64_content(encoded).unwrap();
         assert_eq!(decoded, "Hello, World!");
+    }
+
+    #[test]
+    fn deserialize_pull_request() {
+        let json = r#"{
+            "number": 42,
+            "html_url": "https://github.com/owner/repo/pull/42",
+            "state": "open",
+            "title": "fix: patch CVE-2024-1234"
+        }"#;
+        let pr: GitHubPullRequest = serde_json::from_str(json).expect("parse PR");
+        assert_eq!(pr.number, 42);
+        assert_eq!(pr.html_url, "https://github.com/owner/repo/pull/42");
+        assert_eq!(pr.state, "open");
+        assert_eq!(pr.title, "fix: patch CVE-2024-1234");
+    }
+
+    #[test]
+    fn deserialize_pull_request_list() {
+        let json = r#"[
+            {"number": 1, "html_url": "https://github.com/o/r/pull/1", "state": "open", "title": "PR 1"},
+            {"number": 2, "html_url": "https://github.com/o/r/pull/2", "state": "closed", "title": "PR 2"}
+        ]"#;
+        let prs: Vec<GitHubPullRequest> = serde_json::from_str(json).expect("parse PRs");
+        assert_eq!(prs.len(), 2);
+        assert_eq!(prs[0].number, 1);
+        assert_eq!(prs[1].state, "closed");
+    }
+
+    #[test]
+    fn deserialize_git_ref() {
+        let json = r#"{
+            "ref": "refs/heads/main",
+            "object": { "sha": "abc123def456" }
+        }"#;
+        let git_ref: GitHubRef = serde_json::from_str(json).expect("parse ref");
+        assert_eq!(git_ref.ref_name, "refs/heads/main");
+        assert_eq!(git_ref.object.sha, "abc123def456");
+    }
+
+    #[test]
+    fn deserialize_content_write_response() {
+        let json = r#"{
+            "content": {
+                "name": ".nvmrc",
+                "path": ".nvmrc",
+                "sha": "new_sha_123"
+            },
+            "commit": {
+                "sha": "commit_sha_456"
+            }
+        }"#;
+        let resp: GitHubContentWriteResponse =
+            serde_json::from_str(json).expect("parse content write");
+        assert_eq!(resp.content.name, ".nvmrc");
+        assert_eq!(resp.content.sha, "new_sha_123");
+    }
+
+    #[test]
+    fn base64_encode_content() {
+        use base64::Engine;
+        let raw = "node 20.1.0\n";
+        let encoded = base64::engine::general_purpose::STANDARD.encode(raw.as_bytes());
+        // Verify round-trip
+        let decoded_bytes = base64::engine::general_purpose::STANDARD
+            .decode(&encoded)
+            .expect("decode");
+        let decoded = String::from_utf8(decoded_bytes).expect("utf8");
+        assert_eq!(decoded, raw);
+        // Verify the encoded value is correct
+        assert_eq!(encoded, "bm9kZSAyMC4xLjAK");
     }
 }

@@ -5,7 +5,8 @@ use crate::services::github::{decode_base64_content, GitHubClient};
 use crate::services::scanner::{
     compute_health_score, detect_floating_action_tags, detect_node_version, detect_package_manager,
     discover_manifests, discover_workflows, extract_package_manager_field, extract_php_version,
-    file_exists, parse_composer_json, parse_package_json, HealthScoreInput,
+    file_exists, parse_cargo_toml, parse_composer_json, parse_go_mod, parse_package_json,
+    parse_requirements_txt, HealthScoreInput,
 };
 use crate::{db, services::rate_limiter};
 use chrono::Utc;
@@ -197,7 +198,18 @@ pub async fn scan_repo(repo_id: String) -> AppResult<ScanResult> {
                     root_composer_json_content = Some(content);
                 }
             }
-            // TODO: requirements.txt, Cargo.toml, go.mod parsing in future tasks
+            "requirements.txt" => {
+                let pkgs = parse_requirements_txt(&content, &repo_id);
+                all_packages.extend(pkgs);
+            }
+            "Cargo.toml" => {
+                let pkgs = parse_cargo_toml(&content, &repo_id);
+                all_packages.extend(pkgs);
+            }
+            "go.mod" => {
+                let pkgs = parse_go_mod(&content, &repo_id);
+                all_packages.extend(pkgs);
+            }
             _ => {}
         }
     }
