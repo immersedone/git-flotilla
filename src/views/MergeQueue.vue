@@ -6,7 +6,7 @@ const store = useMergeQueueStore()
 const merging = ref<Record<string, boolean>>({})
 
 onMounted(() => {
-  void store.loadPrs()
+  store.loadPrs().catch(() => {})
 })
 
 async function handleMerge(repoId: string, prNumber: number) {

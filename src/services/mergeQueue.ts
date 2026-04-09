@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './tauri'
 import type { FlotillaPr } from '@/types/mergeQueue'
 
 export function listFlotillaPrs(operationId?: string): Promise<FlotillaPr[]> {

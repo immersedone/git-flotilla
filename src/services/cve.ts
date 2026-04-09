@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './tauri'
 import type { CveAlert, IncidentTimeline, BlastRadius } from '@/types/cve'
 
 export function checkCves(): Promise<CveAlert[]> {

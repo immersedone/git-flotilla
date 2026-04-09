@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './tauri'
 import type { SecretFinding, LicenceFinding, BranchProtectionStatus } from '@/types/compliance'
 
 export function scanSecrets(repoIds: string[]): Promise<SecretFinding[]> {

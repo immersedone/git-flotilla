@@ -55,7 +55,7 @@ async function loadTimeline() {
 }
 
 onMounted(() => {
-  loadTimeline()
+  loadTimeline().catch(() => {})
 })
 </script>
 

@@ -14,11 +14,15 @@ const form = ref({
 })
 
 onMounted(async () => {
-  await Promise.all([
-    store.loadSettings(),
-    store.refreshRateLimit(),
-    store.loadAuditLog(20),
-  ])
+  try {
+    await Promise.all([
+      store.loadSettings(),
+      store.refreshRateLimit(),
+      store.loadAuditLog(20),
+    ])
+  } catch {
+    // errors captured in store
+  }
   // Populate form from loaded settings
   if (store.settings.scan_interval) form.value.scan_interval = store.settings.scan_interval
   if (store.settings.inter_request_delay_ms) form.value.inter_request_delay_ms = store.settings.inter_request_delay_ms

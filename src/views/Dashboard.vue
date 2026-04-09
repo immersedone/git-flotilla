@@ -13,14 +13,16 @@ const operationsStore = useOperationsStore()
 const settingsStore = useSettingsStore()
 
 onMounted(() => {
-  void Promise.all([
+  Promise.all([
     reposStore.loadRepos(),
     scansStore.loadResults(),
     cveStore.loadAlerts(),
     operationsStore.loadOperations(),
     settingsStore.loadAuditLog(10),
     settingsStore.refreshRateLimit(),
-  ])
+  ]).catch(() => {
+    // errors captured in store
+  })
 })
 
 function formatTimestamp(ts: unknown): string {

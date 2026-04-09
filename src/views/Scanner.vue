@@ -114,7 +114,9 @@ onMounted(() => {
     reposStore.loadRepos(),
     repoListsStore.loadLists(),
     scansStore.loadResults(),
-  ])
+  ]).catch(() => {
+    // errors captured in store
+  })
 })
 </script>
 

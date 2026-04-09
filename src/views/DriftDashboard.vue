@@ -75,7 +75,7 @@ const hasDrift = computed(() => driftRows.value.some(r => r.divergentRepos.lengt
 
 onMounted(() => {
   if (scansStore.results.length === 0) {
-    void scansStore.loadResults()
+    scansStore.loadResults().catch(() => {})
   }
 })
 </script>

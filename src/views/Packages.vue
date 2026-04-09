@@ -120,7 +120,9 @@ onMounted(() => {
   Promise.all([
     repoListsStore.loadLists(),
     packagesStore.loadMatrix(),
-  ])
+  ]).catch(() => {
+    // errors captured in store
+  })
 })
 </script>
 

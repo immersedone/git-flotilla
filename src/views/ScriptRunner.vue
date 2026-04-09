@@ -25,8 +25,8 @@ const canRun = computed(() => {
 })
 
 onMounted(() => {
-  void scriptsStore.loadPresets()
-  void reposStore.loadRepos()
+  scriptsStore.loadPresets().catch(() => {})
+  reposStore.loadRepos().catch(() => {})
 })
 
 function onPresetChange() {

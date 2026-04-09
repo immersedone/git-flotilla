@@ -8,7 +8,7 @@ import Input from '@/components/ui/Input.vue'
 
 const authStore = useAuthStore()
 
-onMounted(() => authStore.loadAccounts())
+onMounted(() => { authStore.loadAccounts().catch(() => {}) })
 
 // ── Add account form ─────────────────────────────────────────────────────
 const provider  = ref<'github' | 'gitlab'>('github')

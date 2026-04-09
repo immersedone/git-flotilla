@@ -149,8 +149,8 @@ function deselectAllRepos() {
 }
 
 onMounted(() => {
-  opsStore.loadOperations()
-  reposStore.loadRepos()
+  opsStore.loadOperations().catch(() => {})
+  reposStore.loadRepos().catch(() => {})
 })
 </script>
 

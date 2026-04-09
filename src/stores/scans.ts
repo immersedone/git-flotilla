@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ScanResult, ScanProgressEvent, BatchScanSummary } from '@/types/scan'
-import type { UnlistenFn } from '@tauri-apps/api/event'
+import type { UnlistenFn } from '@/services/tauri'
 import {
   scanRepo,
   scanRepoList,

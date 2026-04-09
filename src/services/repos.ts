@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './tauri'
 import type { Repo, RepoList } from '@/types/repo'
 
 export interface CreateRepoListInput {

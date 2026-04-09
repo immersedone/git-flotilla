@@ -44,7 +44,8 @@ export const usePackagesStore = defineStore('packages', () => {
     isLoading.value = true
     error.value = null
     try {
-      matrix.value = await getDependencyMatrix(repoListId, ecosystem)
+      const result = await getDependencyMatrix(repoListId, ecosystem)
+      matrix.value = result && typeof result === 'object' && 'packages' in result ? result : null
     } catch (e) {
       error.value = String(e)
       throw e

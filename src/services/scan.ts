@@ -1,5 +1,5 @@
-import { invoke } from '@tauri-apps/api/core'
-import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { invoke } from './tauri'
+import { listen, type UnlistenFn } from './tauri'
 import type { ScanResult, ScanProgressEvent } from '@/types/scan'
 
 export function scanRepo(repoId: string): Promise<ScanResult> {

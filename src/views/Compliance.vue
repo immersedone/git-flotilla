@@ -16,7 +16,7 @@ const tabs: { id: TabId; label: string }[] = [
 ]
 
 onMounted(() => {
-  void reposStore.loadRepos()
+  reposStore.loadRepos().catch(() => {})
 })
 
 function allRepoIds(): string[] {

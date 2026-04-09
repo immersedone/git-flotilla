@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './tauri'
 import type { ScriptPreset, ScriptRun } from '@/types/script'
 
 export function runScript(command: string, repoIds: string[], parallel: number): Promise<string> {

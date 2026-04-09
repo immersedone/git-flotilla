@@ -21,7 +21,11 @@ const showExport     = ref(false)
 const actionError    = ref<string | null>(null)
 
 onMounted(async () => {
-  await Promise.all([reposStore.loadRepos(), listsStore.loadLists()])
+  try {
+    await Promise.all([reposStore.loadRepos(), listsStore.loadLists()])
+  } catch {
+    // errors captured in store
+  }
 })
 
 // ── Discover ─────────────────────────────────────────────────────────────

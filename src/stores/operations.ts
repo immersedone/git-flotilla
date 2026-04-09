@@ -11,7 +11,7 @@ import {
   rollbackOperation,
   onOperationProgress,
 } from '@/services/operations'
-import type { UnlistenFn } from '@tauri-apps/api/event'
+import type { UnlistenFn } from '@/services/tauri'
 
 export const useOperationsStore = defineStore('operations', () => {
   const operations = ref<BatchOperation[]>([])
