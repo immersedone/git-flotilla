@@ -29,6 +29,29 @@ pub async fn npm_package_to_github_repo(
     parse_github_url(&repo_url)
 }
 
+// ── npm latest version lookup ────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct NpmLatestResponse {
+    version: Option<String>,
+}
+
+/// Fetch the latest version of an npm package from the registry.
+///
+/// Returns `None` on any network or parse failure — this is a best-effort lookup.
+pub async fn get_npm_latest_version(
+    client: &reqwest::Client,
+    package_name: &str,
+) -> Option<String> {
+    let url = format!("https://registry.npmjs.org/{package_name}/latest");
+    let resp = client.get(&url).send().await.ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    let info: NpmLatestResponse = resp.json().await.ok()?;
+    info.version
+}
+
 // ── URL parsing ───────────────────────────────────────────────────────────
 
 /// Parse a GitHub URL into (owner, repo).

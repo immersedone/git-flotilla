@@ -166,7 +166,41 @@ pub async fn get_dependency_matrix(
         .map(|(r, e, n, v, d)| (r.as_str(), e.as_str(), n.as_str(), v.as_str(), *d))
         .collect();
 
-    let matrix = aggregate_packages(&refs);
+    let mut matrix = aggregate_packages(&refs);
+
+    // Best-effort: look up latest versions for npm packages (cap at 50 to avoid hammering registry)
+    let npm_packages: Vec<usize> = matrix
+        .packages
+        .iter()
+        .enumerate()
+        .filter(|(_, pkg)| pkg.ecosystem == "npm")
+        .map(|(i, _)| i)
+        .take(50)
+        .collect();
+
+    if !npm_packages.is_empty() {
+        let http_client = reqwest::Client::builder()
+            .user_agent("git-flotilla/0.1")
+            .build()
+            .ok();
+
+        if let Some(client) = http_client {
+            let mut lookups = Vec::new();
+            for &idx in &npm_packages {
+                let name = matrix.packages[idx].name.clone();
+                let client_ref = &client;
+                lookups.push(async move {
+                    let version = changelog::get_npm_latest_version(client_ref, &name).await;
+                    (idx, version)
+                });
+            }
+
+            let results = futures::future::join_all(lookups).await;
+            for (idx, version) in results {
+                matrix.packages[idx].latest_version = version;
+            }
+        }
+    }
 
     tracing::info!(
         "Dependency matrix: {} packages across {} repos",
