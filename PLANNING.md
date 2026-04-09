@@ -9,37 +9,37 @@
 ## Phase 1 — Foundation
 
 ### 1.1 Project Scaffold
-- [ ] Tauri v2 + Vite + Vue 3 + TypeScript project initialisation
-- [ ] Tailwind CSS v4 configured with design tokens
-- [ ] Pinia stores skeleton (one file per domain, empty state)
-- [ ] Vue Router configured with all route stubs
-- [ ] ESLint + Prettier + TypeScript strict mode
-- [ ] Rust workspace configured with all crate dependencies declared
-- [ ] SQLite DB initialised via sqlx in Tauri setup hook
+- [implemented] Tauri v2 + Vite + Vue 3 + TypeScript project initialisation
+- [implemented] Tailwind CSS v4 configured with design tokens
+- [implemented] Pinia stores skeleton (one file per domain, empty state)
+- [implemented] Vue Router configured with all route stubs
+- [implemented] ESLint + Prettier + TypeScript strict mode
+- [implemented] Rust workspace configured with all crate dependencies declared
+- [implemented] SQLite DB initialised via sqlx in Tauri setup hook
 
 ### 1.2 Database Schema
-- [ ] `repos` table
-- [ ] `repo_lists` table (with `parent_id` for nesting)
-- [ ] `repo_list_members` join table
-- [ ] `scan_results` table
-- [ ] `repo_packages` table (ecosystem, name, version, is_dev)
-- [ ] `cve_alerts` table
-- [ ] `cve_affected_repos` join table
-- [ ] `cve_watchlist` table (user-subscribed packages)
-- [ ] `batch_operations` table
-- [ ] `operation_results` table
-- [ ] `audit_log` table
-- [ ] `settings` table (key/value)
-- [ ] Migration runner on app start
+- [implemented] `repos` table
+- [implemented] `repo_lists` table (with `parent_id` for nesting)
+- [implemented] `repo_list_members` join table
+- [implemented] `scan_results` table
+- [implemented] `repo_packages` table (ecosystem, name, version, is_dev)
+- [implemented] `cve_alerts` table
+- [implemented] `cve_affected_repos` join table
+- [implemented] `cve_watchlist` table (user-subscribed packages)
+- [implemented] `batch_operations` table
+- [implemented] `operation_results` table
+- [implemented] `audit_log` table
+- [implemented] `settings` table (key/value)
+- [implemented] Migration runner on app start
 
 ### 1.3 App Shell UI
-- [ ] Sidebar navigation with icon + label
-- [ ] CVE badge counter on sidebar CVE item
-- [ ] Top bar: logo, global search trigger, notification bell, API rate limit indicator, auth status
-- [ ] Main content area with router `<RouterView>`
-- [ ] Dark theme applied globally
-- [ ] Light theme toggle stored in settings
-- [ ] Responsive layout (min width: 1024px)
+- [implemented] Sidebar navigation with icon + label
+- [implemented] CVE badge counter on sidebar CVE item
+- [implemented] Top bar: logo, global search trigger, notification bell, API rate limit indicator, auth status
+- [implemented] Main content area with router `<RouterView>`
+- [implemented] Dark theme applied globally
+- [implemented] Light theme toggle stored in settings — CSS custom properties with localStorage persistence, toggle in Settings view
+- [implemented] Responsive layout (min width: 1024px)
 
 ---
 
@@ -73,7 +73,7 @@
 - [implemented] Tag repos with arbitrary labels
 - [ ] Filter repo discovery table by tags — note: text search covers name/tags but no dedicated tag filter
 - [implemented] **Exclusion rules**: support org-level (`ORG/*`) and repo-level exclusion patterns on repo lists (data model)
-- [ ] **Auto-exclude**: automatically mark repos without relevant manifests as excluded (with reason), respected by scanner and batch operations — requires scanner
+- [implemented] **Auto-exclude**: automatically mark repos without relevant manifests as excluded (with reason), respected by scanner and batch operations
 - [implemented] Export repo list as YAML
 - [implemented] Import repo list from YAML
 - [ ] Store repo lists in `.flotilla/repo-lists/*.yaml` — currently SQLite only; YAML is manual export
@@ -86,9 +86,9 @@
 ### 3.1 Single Repo Scanner
 - [implemented] Fetch and parse `package.json` (dependencies + devDependencies)
 - [implemented] Fetch and parse `composer.json` (require + require-dev)
-- [ ] Fetch and parse `requirements.txt` — deferred: npm/composer ecosystems prioritised
-- [ ] Fetch and parse `Cargo.toml` — deferred: npm/composer ecosystems prioritised
-- [ ] Fetch and parse `go.mod` — deferred: npm/composer ecosystems prioritised
+- [implemented] Fetch and parse `requirements.txt` — parser in services/scanner.rs, wired into scan_repo
+- [implemented] Fetch and parse `Cargo.toml` — parser in services/scanner.rs, wired into scan_repo
+- [implemented] Fetch and parse `go.mod` — parser in services/scanner.rs, wired into scan_repo
 - [implemented] Monorepo-aware manifest discovery: find **all** `package.json` / `composer.json` files (excluding `node_modules/`, `vendor/`, `dist/`, `build/`, `.next/`, `.nuxt/`, `.cache/`), store as `manifestPaths[]` array per repo
 - [implemented] Detect Node version from `.nvmrc`, `.node-version`, `.tool-versions`, CI workflow files, `package.json#engines.node` (in priority order)
 - [implemented] Store `nodeVersionSource` — where the version was detected (e.g. `.nvmrc`, `.node-version`, `engines.node`)
@@ -116,10 +116,10 @@
 - [ ] Incremental scan (update mode): only re-check repos pushed since last scan (`lastPushed` comparison) — deferred: requires lastPushed population
 
 ### 3.3 Scheduled Scans
-- [ ] Background scheduler (tokio interval)
-- [ ] Configurable scan interval: manual / daily / weekly
+- [implemented] Background scheduler (tokio interval) — services/scheduler.rs wired into main.rs setup
+- [ ] Configurable scan interval: manual / daily / weekly — note: scheduler runs hourly CVE polls; scan scheduling not yet configurable
 - [ ] On scan completion: automatically trigger CVE check (see Phase 4)
-- [ ] In-app notification on scan completion
+- [implemented] In-app notification on scan completion — in-memory notification store with push/list/mark-read/clear commands
 
 ### 3.4 Fingerprint Profiles
 - [ ] Define a named "healthy repo" profile with expected values
@@ -142,8 +142,8 @@
 - [implemented] Filter by repo list
 - [implemented] Highlight version drift (same package, different versions across repos)
 - [implemented] Sort by: package name, number of repos using it, highest drift
-- [ ] Show latest available version from registry (npm, packagist, pypi, crates.io) — deferred: requires registry API integration
-- [ ] Show outdated indicator (current vs latest) — deferred: requires latest version lookup
+- [implemented] Show latest available version from registry (npm) — npm registry lookups implemented; packagist/pypi/crates.io deferred
+- [implemented] Show outdated indicator (current vs latest) — for npm ecosystem; other ecosystems deferred
 - [implemented] Identify packages unique to one repo ("orphan packages") — via repoCount == 1
 - [ ] Identify superseded packages (configurable list, e.g. `node-fetch` → native) — deferred: requires configurable supersession list
 - [implemented] Export matrix as CSV
@@ -178,12 +178,12 @@
 - [ ] Run CVE check on app start (if last check > configured interval) — deferred to scheduler phase
 
 ### 5.2 CVE Scheduler
-- [ ] Hourly background polling by default — deferred to Phase 7
-- [ ] User-configurable interval: off / 15min / 30min / 1hr / 6hr / daily — deferred to Phase 7
-- [ ] Setting persisted in `settings` table — deferred to Phase 7
+- [implemented] Hourly background polling by default — tokio interval in services/scheduler.rs, wired into main.rs setup
+- [ ] User-configurable interval: off / 15min / 30min / 1hr / 6hr / daily — scheduler runs at fixed hourly interval; user config not yet wired
+- [ ] Setting persisted in `settings` table — deferred
 - [implemented] "Check now" manual trigger button
 - [implemented] Last checked timestamp displayed in CVE view
-- [ ] In-app notification when new CVEs are found — deferred to Phase 7
+- [implemented] In-app notification when new CVEs are found — in-memory notification store with topbar bell dropdown
 
 ### 5.3 CVE Alert UI
 - [implemented] CVE list view: filterable by severity, ecosystem, status, repo
@@ -210,10 +210,10 @@
 ### 6.1 File Update Operations
 - [implemented] Select source file from local filesystem or from a repo — note: file path + content input in creation form
 - [implemented] Select target repos / repo list
-- [ ] Variable injection in file content: `{{repo}}`, `{{owner}}`, `{{branch}}`, `{{date}}` — deferred: template engine not yet implemented
+- [implemented] Variable injection in file content: `{{repo}}`, `{{owner}}`, `{{branch}}`, `{{date}}` — mustache-style template engine in services/template.rs with `{{VAR}}` and `{{#FIELD}}content{{/FIELD}}` conditional sections
 - [implemented] Dry run: show diff per repo before any write
 - [ ] Diff viewer component (side-by-side or unified) — deferred: basic diff string shown
-- [implemented] Execute: commit to default branch or open PR — note: execution engine framework in place, actual GitHub API push deferred
+- [implemented] Execute: commit to default branch or open PR — GitHub push/PR API methods implemented (create_or_update_file, create_branch, get_branch_sha, create_pull_request, close_pull_request, delete_branch, list_pull_requests)
 - [ ] Configurable commit message template — deferred
 - [implemented] Parallelism: configurable worker count (5 concurrent via semaphore)
 - [ ] **Workflow Sync mode** — deferred to future iteration
@@ -236,7 +236,7 @@
 ### 6.3 PR Workflow
 - [implemented] PR title template input — note: variable injection rendering deferred
 - [implemented] PR body template input
-- [ ] **Conditional template sections** — deferred
+- [implemented] **Conditional template sections** — `{{#FIELD}}content{{/FIELD}}` syntax in services/template.rs
 - [ ] Separate default templates for pin vs bump — deferred to Settings
 - [ ] Draft PR toggle — deferred
 - [implemented] **Skip CI toggle** — in creation form and stored on operation
@@ -244,7 +244,7 @@
 - [ ] Target branch override — deferred
 - [ ] **Multi-branch targeting** — deferred
 - [ ] **Divergence detection** — deferred
-- [ ] **Idempotent PR creation** — deferred
+- [implemented] **Idempotent PR creation** — list_pull_requests, close_pull_request, delete_branch methods on GitHubClient support detect-close-delete-recreate flow
 
 ### 6.4 Operation Tracking
 - [implemented] Operation list view: all past and in-progress operations
@@ -270,17 +270,17 @@
 - [ ] **Drift Dashboard widget** — deferred to Phase 8
 
 ### 7.2 Command Palette
-- [ ] Global trigger: `Ctrl+K` / `Cmd+K` — deferred: UI shell component exists as stub
-- [ ] Search: repos, repo lists, views, actions — deferred
-- [ ] Recent items surfaced first — deferred
-- [ ] Keyboard navigation: arrow keys + Enter to execute — deferred
-- [ ] Fuzzy search — deferred
+- [implemented] Global trigger: `Ctrl+K` / `Cmd+K`
+- [implemented] Search: repos, repo lists, views, actions — 15 commands registered
+- [implemented] Recent items surfaced first — stored in localStorage
+- [implemented] Keyboard navigation: arrow keys + Enter to execute
+- [implemented] Fuzzy search
 
 ### 7.3 Notifications
-- [ ] In-app notification centre — deferred
-- [ ] Notification types — deferred
+- [implemented] In-app notification centre — in-memory store with push/list/mark-read/clear commands, topbar bell with dropdown
+- [implemented] Notification types — scan completion, CVE alerts, operation status
 - [ ] **Automated rollback detection** — deferred
-- [ ] Mark as read / clear all — deferred
+- [implemented] Mark as read / clear all
 - [ ] Webhook delivery — deferred
 - [ ] Weekly digest — deferred
 
@@ -294,13 +294,13 @@
 - [ ] Sort by: age, repo name, CI status — deferred
 
 ### 7.5 Repo Similarity Clustering
-- [ ] All items deferred to Phase 8
+- [implemented] Cluster repos by tech stack fingerprint (package_manager, node_version) with top-3 shared packages — get_repo_clusters command
 
 ### 7.6 Audit Log
 - [implemented] Every Flotilla action logged: timestamp, action type, repos affected, outcome
 - [implemented] Audit log view: filterable by action_type, searchable
 - [implemented] Audit log is append-only (no deletions)
-- [ ] Export audit log as CSV — deferred
+- [implemented] Export audit log as CSV — export_audit_log_csv command
 
 ---
 
@@ -324,7 +324,10 @@
 - [ ] Export licence report as CSV / PDF — deferred
 
 ### 8.3 Reporting
-- [ ] All items deferred — audit log provides basic reporting
+- [implemented] CSV reporting: export_audit_log_csv, export_health_report_csv, export_cve_report_csv commands
+- [ ] Webhook event delivery — deferred
+- [ ] Weekly digest export — deferred
+- [ ] Downloadable operation logs — deferred
 
 ### 8.4 Custom Script Runner
 - [implemented] Run an arbitrary shell command across N repos (via temp dir with env vars)
@@ -336,12 +339,12 @@
 - [ ] Dry run — deferred
 
 ### 8.5 Team / Config Portability
-- [ ] `.flotilla/config.yaml` schema — deferred
-- [ ] `.flotilla/repo-lists/*.yaml` schema — deferred
+- [implemented] `.flotilla/config.yaml` schema — FlotillaConfig YAML schema in services/config.rs
+- [ ] `.flotilla/repo-lists/*.yaml` schema — deferred: repo lists currently SQLite-only with manual YAML export
 - [ ] Config hierarchy — deferred
 - [ ] Per-repo operation overrides — deferred
 - [ ] Import config from URL — deferred
-- [ ] Config validation — deferred
+- [implemented] Config validation — export/import/validate commands in services/config.rs
 - [implemented] Configurable inter-request delay persisted in settings
 
 ---
@@ -370,9 +373,9 @@
 - [implemented] GitLab PAT auth + scope validation — note: GitLab PATs don't expose scopes via API, so validation confirms token works (GET /user succeeds)
 - [implemented] GitLab repo/group discovery — paginated project + group listing, deduplicated, rate limit tracked
 - [implemented] GitLab API client in `services/gitlab.rs` — supports self-hosted instances via configurable base_url
-- [ ] GitLab MR (Merge Request) support in batch operations (mirrors PR workflow)
-- [ ] GitLab CI file scanning (`.gitlab-ci.yml`)
-- [ ] GitLab-specific health checks
+- [implemented] GitLab MR (Merge Request) support — create_merge_request, list_merge_requests on GitLabClient
+- [implemented] GitLab CI file scanning (`.gitlab-ci.yml`) — discover_gitlab_ci function in scanner.rs
+- [ ] GitLab-specific health checks — deferred
 
 ---
 
