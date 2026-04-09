@@ -3,6 +3,18 @@ use sqlx::SqlitePool;
 
 use crate::error::AppResult;
 
+fn days_ago(d: i64) -> String {
+    (Utc::now() - Duration::days(d))
+        .format("%Y-%m-%dT%H:%M:%SZ")
+        .to_string()
+}
+
+fn hours_ago(h: i64) -> String {
+    (Utc::now() - Duration::hours(h))
+        .format("%Y-%m-%dT%H:%M:%SZ")
+        .to_string()
+}
+
 /// Seeds the database with realistic demo data if it is empty (no repos).
 /// This provides a polished first-run experience with data suitable for
 /// screenshots and demos. The data uses the fictional "acme-corp" org.
@@ -22,32 +34,20 @@ pub async fn seed_if_empty(pool: &SqlitePool) -> AppResult<()> {
 }
 
 async fn seed_all(pool: &SqlitePool) -> AppResult<()> {
-    let now = Utc::now();
-    let day = |d: i64| {
-        (now - Duration::days(d))
-            .format("%Y-%m-%dT%H:%M:%SZ")
-            .to_string()
-    };
-    let hr = |h: i64| {
-        (now - Duration::hours(h))
-            .format("%Y-%m-%dT%H:%M:%SZ")
-            .to_string()
-    };
-
-    seed_repos(pool, &day).await?;
-    seed_repo_list(pool, &day).await?;
-    let scanned_at = day(1);
-    seed_scans(pool, &scanned_at, &day).await?;
+    seed_repos(pool).await?;
+    seed_repo_list(pool).await?;
+    let scanned_at = days_ago(1);
+    seed_scans(pool, &scanned_at).await?;
     seed_packages(pool, &scanned_at).await?;
-    seed_cves(pool, &day).await?;
-    seed_operations(pool, &day, &hr).await?;
-    seed_audit_log(pool, &day, &hr).await?;
-    seed_script_presets(pool, &day).await?;
+    seed_cves(pool).await?;
+    seed_operations(pool).await?;
+    seed_audit_log(pool).await?;
+    seed_script_presets(pool).await?;
 
     Ok(())
 }
 
-async fn seed_repos(pool: &SqlitePool, day: &dyn Fn(i64) -> String) -> AppResult<()> {
+async fn seed_repos(pool: &SqlitePool) -> AppResult<()> {
     let repos = [
         (
             "github:acme-corp/web-app",
@@ -106,8 +106,8 @@ async fn seed_repos(pool: &SqlitePool, day: &dyn Fn(i64) -> String) -> AppResult
         ),
     ];
 
-    for (id, provider, owner, name, full_name, url, branch, is_private, days_ago) in &repos {
-        let created = day(*days_ago);
+    for (id, provider, owner, name, full_name, url, branch, is_private, offset_days) in &repos {
+        let created = days_ago(*offset_days);
         sqlx::query(
             "INSERT INTO repos (id, provider, owner, name, full_name, url, default_branch, is_private, tags, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)"
@@ -121,11 +121,11 @@ async fn seed_repos(pool: &SqlitePool, day: &dyn Fn(i64) -> String) -> AppResult
     Ok(())
 }
 
-async fn seed_repo_list(pool: &SqlitePool, day: &dyn Fn(i64) -> String) -> AppResult<()> {
+async fn seed_repo_list(pool: &SqlitePool) -> AppResult<()> {
     let list_id = "list-acme-corp-001";
-    let created = day(30);
-    let updated = day(1);
-    let member_added = day(30);
+    let created = days_ago(30);
+    let updated = days_ago(1);
+    let member_added = days_ago(30);
 
     sqlx::query(
         "INSERT INTO repo_lists (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
@@ -161,9 +161,8 @@ async fn seed_repo_list(pool: &SqlitePool, day: &dyn Fn(i64) -> String) -> AppRe
 async fn seed_scans(
     pool: &SqlitePool,
     scanned_at: &str,
-    day: &dyn Fn(i64) -> String,
 ) -> AppResult<()> {
-    let last_pushed = day(2);
+    let last_pushed = days_ago(2);
 
     // web-app: health 85
     sqlx::query(
@@ -395,12 +394,12 @@ async fn seed_packages(pool: &SqlitePool, scanned_at: &str) -> AppResult<()> {
     Ok(())
 }
 
-async fn seed_cves(pool: &SqlitePool, day: &dyn Fn(i64) -> String) -> AppResult<()> {
+async fn seed_cves(pool: &SqlitePool) -> AppResult<()> {
     // CVE alerts
-    let published_1 = day(5);
-    let published_2 = day(7);
-    let published_3 = day(3);
-    let detected = day(1);
+    let published_1 = days_ago(5);
+    let published_2 = days_ago(7);
+    let published_3 = days_ago(3);
+    let detected = days_ago(1);
 
     sqlx::query(
         "INSERT INTO cve_alerts (id, package_name, ecosystem, severity, summary, affected_version_range, fixed_version, published_at, detected_at, status)
@@ -472,17 +471,13 @@ async fn seed_cves(pool: &SqlitePool, day: &dyn Fn(i64) -> String) -> AppResult<
     Ok(())
 }
 
-async fn seed_operations(
-    pool: &SqlitePool,
-    day: &dyn Fn(i64) -> String,
-    hr: &dyn Fn(i64) -> String,
-) -> AppResult<()> {
+async fn seed_operations(pool: &SqlitePool) -> AppResult<()> {
     let op_completed_id = "op-seed-001";
     let op_pending_id = "op-seed-002";
 
     let all_axios_repos = r#"["github:acme-corp/web-app","github:acme-corp/api-gateway","github:acme-corp/mobile-app","github:acme-corp/docs-site"]"#;
-    let completed_at = day(2);
-    let pending_at = hr(3);
+    let completed_at = days_ago(2);
+    let pending_at = hours_ago(3);
 
     sqlx::query(
         "INSERT INTO batch_operations (id, operation_type, mode, status, target_repo_ids, completed_repo_ids, version_map, is_dry_run, skip_ci, created_at, completed_at)
@@ -512,7 +507,7 @@ async fn seed_operations(
 
     // Operation results for the completed operation
     let result_repos = ["web-app", "api-gateway", "mobile-app", "docs-site"];
-    let result_at = day(2);
+    let result_at = days_ago(2);
 
     for (i, repo_name) in result_repos.iter().enumerate() {
         let repo_id = format!("github:acme-corp/{repo_name}");
@@ -536,14 +531,12 @@ async fn seed_operations(
 #[allow(clippy::type_complexity)]
 async fn seed_audit_log(
     pool: &SqlitePool,
-    day: &dyn Fn(i64) -> String,
-    hr: &dyn Fn(i64) -> String,
 ) -> AppResult<()> {
-    let ts1 = day(5);
-    let ts2 = day(3);
-    let ts3 = day(2);
-    let ts4 = day(1);
-    let ts5 = hr(3);
+    let ts1 = days_ago(5);
+    let ts2 = days_ago(3);
+    let ts3 = days_ago(2);
+    let ts4 = days_ago(1);
+    let ts5 = hours_ago(3);
 
     let entries: &[(&str, &str, &str, Option<&str>, &str, &str)] = &[
         (
@@ -601,8 +594,8 @@ async fn seed_audit_log(
     Ok(())
 }
 
-async fn seed_script_presets(pool: &SqlitePool, day: &dyn Fn(i64) -> String) -> AppResult<()> {
-    let created = day(10);
+async fn seed_script_presets(pool: &SqlitePool) -> AppResult<()> {
+    let created = days_ago(10);
 
     sqlx::query(
         "INSERT INTO script_presets (name, command, description, created_at) VALUES (?, ?, ?, ?)",
