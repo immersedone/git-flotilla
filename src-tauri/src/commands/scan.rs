@@ -10,7 +10,26 @@ use crate::services::scanner::{
 use crate::{db, services::rate_limiter};
 use chrono::Utc;
 use keyring::Entry;
+use serde::Serialize;
 use sqlx::Row;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
+use tauri::Emitter;
+use tokio::sync::Mutex;
+
+// ── Batch scan types ────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanProgressEvent {
+    pub repo_id: String,
+    pub status: String,
+    pub current: usize,
+    pub total: usize,
+    pub error: Option<String>,
+}
+
+static SCAN_ABORT: AtomicBool = AtomicBool::new(false);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -428,13 +447,133 @@ pub async fn list_scan_results(repo_list_id: Option<String>) -> AppResult<Vec<Sc
 }
 
 #[tauri::command]
-pub async fn scan_repo_list(list_id: String) -> AppResult<String> {
-    let _ = list_id;
-    Err(AppError::Operation("not implemented".into()))
+pub async fn scan_repo_list(list_id: String, app: tauri::AppHandle) -> AppResult<String> {
+    // Reset abort flag
+    SCAN_ABORT.store(false, Ordering::SeqCst);
+
+    // Fetch repo IDs belonging to this list
+    let pool = db::pool()?;
+    let rows = sqlx::query("SELECT repo_id FROM repo_list_members WHERE list_id = ?")
+        .bind(&list_id)
+        .fetch_all(pool)
+        .await?;
+
+    if rows.is_empty() {
+        return Err(AppError::InvalidInput(format!(
+            "Repo list '{list_id}' is empty or does not exist"
+        )));
+    }
+
+    let repo_ids: Vec<String> = rows.iter().map(|r| r.get("repo_id")).collect();
+    let total = repo_ids.len();
+
+    // Concurrency control: 5 simultaneous scans
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(5));
+    let counter = Arc::new(AtomicUsize::new(0));
+    let succeeded = Arc::new(AtomicUsize::new(0));
+    let failed_count = Arc::new(AtomicUsize::new(0));
+    let errors: Arc<Mutex<Vec<(String, String)>>> = Arc::new(Mutex::new(Vec::new()));
+
+    let mut handles = Vec::with_capacity(total);
+
+    for repo_id in repo_ids {
+        let sem = Arc::clone(&semaphore);
+        let ctr = Arc::clone(&counter);
+        let ok_count = Arc::clone(&succeeded);
+        let fail_count = Arc::clone(&failed_count);
+        let errs = Arc::clone(&errors);
+        let app_handle = app.clone();
+
+        let handle = tokio::spawn(async move {
+            // Check abort before acquiring permit
+            if SCAN_ABORT.load(Ordering::SeqCst) {
+                return;
+            }
+
+            // Acquire semaphore permit
+            let _permit = match sem.acquire().await {
+                Ok(permit) => permit,
+                Err(_) => return, // Semaphore closed
+            };
+
+            // Check abort after acquiring permit
+            if SCAN_ABORT.load(Ordering::SeqCst) {
+                return;
+            }
+
+            let current = ctr.fetch_add(1, Ordering::SeqCst) + 1;
+
+            // Emit "scanning" event
+            let _ = app_handle.emit(
+                "scan-progress",
+                ScanProgressEvent {
+                    repo_id: repo_id.clone(),
+                    status: "scanning".to_string(),
+                    current,
+                    total,
+                    error: None,
+                },
+            );
+
+            // Perform the scan
+            match scan_repo(repo_id.clone()).await {
+                Ok(_) => {
+                    ok_count.fetch_add(1, Ordering::SeqCst);
+                    let _ = app_handle.emit(
+                        "scan-progress",
+                        ScanProgressEvent {
+                            repo_id,
+                            status: "done".to_string(),
+                            current,
+                            total,
+                            error: None,
+                        },
+                    );
+                }
+                Err(e) => {
+                    fail_count.fetch_add(1, Ordering::SeqCst);
+                    let err_msg = e.to_string();
+                    errs.lock().await.push((repo_id.clone(), err_msg.clone()));
+                    let _ = app_handle.emit(
+                        "scan-progress",
+                        ScanProgressEvent {
+                            repo_id,
+                            status: "failed".to_string(),
+                            current,
+                            total,
+                            error: Some(err_msg),
+                        },
+                    );
+                }
+            }
+
+            // Inter-request delay (200ms)
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        });
+
+        handles.push(handle);
+    }
+
+    // Wait for all tasks to complete
+    for handle in handles {
+        let _ = handle.await;
+    }
+
+    let ok = succeeded.load(Ordering::SeqCst);
+    let fail = failed_count.load(Ordering::SeqCst);
+    let aborted = SCAN_ABORT.load(Ordering::SeqCst);
+
+    tracing::info!(
+        "Batch scan of list '{list_id}' finished: {ok} succeeded, {fail} failed, aborted={aborted}"
+    );
+
+    Ok(list_id)
 }
 
 #[tauri::command]
 pub async fn abort_scan(operation_id: String) -> AppResult<()> {
     let _ = operation_id;
-    Err(AppError::Operation("not implemented".into()))
+    SCAN_ABORT.store(true, Ordering::SeqCst);
+    tracing::info!("Scan abort requested");
+    Ok(())
 }
