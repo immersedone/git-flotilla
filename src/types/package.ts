@@ -21,6 +21,9 @@ export interface PackageRow {
   ecosystem: Ecosystem
   versionsByRepo: Record<string, string>
   latestVersion: string | null
+  repoCount: number
+  hasDrift: boolean
+  isDevOnly: boolean
 }
 
 export interface DependencyMatrix {
