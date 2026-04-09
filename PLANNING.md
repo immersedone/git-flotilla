@@ -168,40 +168,40 @@
 ## Phase 5 — CVE Monitoring
 
 ### 5.1 CVE Data Ingestion
-- [ ] Query OSV.dev API for all packages in latest scans (primary source)
-- [ ] Query GitHub Advisory Database (secondary source)
-- [ ] Query NVD NIST API (tertiary source)
-- [ ] Deduplicate CVEs across sources by CVE ID
-- [ ] Store CVEs in SQLite with full metadata
-- [ ] Match CVEs against `repo_packages` table → populate `cve_affected_repos`
-- [ ] Run CVE check automatically after every scan completes
-- [ ] Run CVE check on app start (if last check > configured interval)
+- [implemented] Query OSV.dev API for all packages in latest scans (primary source)
+- [ ] Query GitHub Advisory Database (secondary source) — deferred: OSV.dev covers most cases
+- [ ] Query NVD NIST API (tertiary source) — deferred: OSV.dev covers most cases
+- [implemented] Deduplicate CVEs across sources by CVE ID
+- [implemented] Store CVEs in SQLite with full metadata
+- [implemented] Match CVEs against `repo_packages` table → populate `cve_affected_repos`
+- [ ] Run CVE check automatically after every scan completes — deferred to scheduler phase
+- [ ] Run CVE check on app start (if last check > configured interval) — deferred to scheduler phase
 
 ### 5.2 CVE Scheduler
-- [ ] Hourly background polling by default
-- [ ] User-configurable interval: off / 15min / 30min / 1hr / 6hr / daily
-- [ ] Setting persisted in `settings` table
-- [ ] "Check now" manual trigger button
-- [ ] Last checked timestamp displayed in CVE view
-- [ ] In-app notification when new CVEs are found
+- [ ] Hourly background polling by default — deferred to Phase 7
+- [ ] User-configurable interval: off / 15min / 30min / 1hr / 6hr / daily — deferred to Phase 7
+- [ ] Setting persisted in `settings` table — deferred to Phase 7
+- [implemented] "Check now" manual trigger button
+- [implemented] Last checked timestamp displayed in CVE view
+- [ ] In-app notification when new CVEs are found — deferred to Phase 7
 
 ### 5.3 CVE Alert UI
-- [ ] CVE list view: filterable by severity, ecosystem, status, repo
-- [ ] Severity colour coding: critical (red), high (orange), medium (amber), low (blue)
-- [ ] CVE detail panel: full description, affected version range, fixed version, affected repos
-- [ ] Badge counter on sidebar CVE nav item (count of unacknowledged critical + high)
-- [ ] Per-repo CVE summary on repo cards
-- [ ] Mark CVE as: acknowledged / dismissed
-- [ ] Snooze CVE (re-alert after N days)
-- [ ] "Patch affected repos" CTA → pre-fill batch operation with fixedVersion
-- [ ] **Incident Timeline View**: unified timeline per CVE showing when vulnerability was published, when Flotilla detected it, which repos were scanned, which PRs were created/merged/still open — one screen to answer "where are we?" during an active incident
-- [ ] **Blast Radius Analysis**: before patching, show the full dependency graph of an affected package — which repos use it directly, which get it transitively, and which transitive paths exist; helps prioritise patching order (e.g. public-facing apps before internal tools)
+- [implemented] CVE list view: filterable by severity, ecosystem, status, repo
+- [implemented] Severity colour coding: critical (red), high (orange), medium (amber), low (blue)
+- [implemented] CVE detail panel: full description, affected version range, fixed version, affected repos
+- [implemented] Badge counter on sidebar CVE nav item (count of unacknowledged critical + high)
+- [ ] Per-repo CVE summary on repo cards — deferred
+- [implemented] Mark CVE as: acknowledged / dismissed
+- [implemented] Snooze CVE (re-alert after N days)
+- [ ] "Patch affected repos" CTA → pre-fill batch operation with fixedVersion — deferred: requires Batch Operations (Phase 6)
+- [implemented] **Incident Timeline View**: unified timeline per CVE
+- [implemented] **Blast Radius Analysis**: direct repo exposure analysis — note: transitive analysis deferred
 
 ### 5.4 CVE Watchlist
-- [ ] User can subscribe to arbitrary packages (not just ones in current scans)
-- [ ] Watchlist management UI: add / remove packages per ecosystem
-- [ ] Watchlist packages included in every CVE poll
-- [ ] Notify when a watched package receives a new CVE
+- [implemented] User can subscribe to arbitrary packages (not just ones in current scans)
+- [implemented] Watchlist management UI: add / remove packages per ecosystem
+- [ ] Watchlist packages included in every CVE poll — deferred to scheduler phase
+- [ ] Notify when a watched package receives a new CVE — deferred to Phase 7
 
 ---
 
