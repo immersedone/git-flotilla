@@ -1,0 +1,47 @@
+# .flotilla/repo-lists/example-client.yaml
+# Example repo list definition.
+# Commit this file to share repo groups with your team.
+# Each team member provides their own auth tokens.
+
+id: client-acme
+name: "Client: Acme Corp"
+description: "All repositories for Acme Corp engagement"
+created_at: "2026-01-01T00:00:00Z"
+
+# Assign a fingerprint profile (defined in config.yaml) to all repos in this list
+profile: laravel-standard
+
+# Tags applied to all repos in this list (in addition to per-repo tags)
+tags:
+  - client:acme
+  - laravel
+
+children:
+  - id: acme-backend
+    name: "Backend Services"
+    repos:
+      - provider: github
+        full_name: acme-org/api-gateway
+        tags:
+          - laravel
+          - api
+      - provider: github
+        full_name: acme-org/auth-service
+        tags:
+          - laravel
+          - auth
+
+  - id: acme-frontend
+    name: "Frontend Applications"
+    profile: vue-spa   # Override profile for this child group
+    repos:
+      - provider: github
+        full_name: acme-org/customer-portal
+        tags:
+          - vue3
+          - spa
+      - provider: github
+        full_name: acme-org/admin-dashboard
+        tags:
+          - vue3
+          - spa
