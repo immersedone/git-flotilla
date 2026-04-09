@@ -348,14 +348,18 @@
 
 ## Phase 9 — CLI Companion
 
-- [ ] `git-flotilla` CLI binary (separate Rust binary in workspace)
-- [ ] `git-flotilla scan [repo|list]` — run scan
-- [ ] `git-flotilla cve check` — check CVEs for current scans
-- [ ] `git-flotilla op apply [operation-file]` — apply a batch operation from YAML definition
-- [ ] `git-flotilla repo list` — list known repos
-- [ ] `git-flotilla report` — output health summary
-- [ ] CLI shares config and DB with the GUI (same app data directory)
-- [ ] Machine-readable output: `--json` flag on all commands
+- [implemented] `git-flotilla-cli` CLI binary (second binary target in src-tauri)
+- [implemented] `git-flotilla-cli scan --repo <ID>` — show latest scan result for a repo
+- [implemented] `git-flotilla-cli scan --list <ID>` — show scan summary for a repo list
+- [implemented] `git-flotilla-cli cve check` — show CVE check status summary
+- [implemented] `git-flotilla-cli cve list [--severity <LEVEL>]` — list CVE alerts with optional severity filter
+- [ ] `git-flotilla-cli op apply [operation-file]` — apply a batch operation from YAML definition
+- [implemented] `git-flotilla-cli repo list` — list known repos
+- [implemented] `git-flotilla-cli report` — output health summary (repos, scanned, avg health, CVEs, packages)
+- [implemented] CLI shares DB with the GUI (same Tauri app data directory, overridable via FLOTILLA_DB_PATH)
+- [implemented] Machine-readable output: `--json` flag on all commands
+- [implemented] Read-only DB access (CLI opens DB in read-only mode)
+- [implemented] Graceful error handling: missing DB, invalid args, empty results
 
 ---
 

@@ -52,6 +52,13 @@ dirs = "5"
 # Temp directories (script runner)
 tempfile = "3"
 
+# CLI argument parsing
+clap = { version = "4", features = ["derive"] }
+
+[[bin]]
+name = "git-flotilla-cli"
+path = "src/bin/cli.rs"
+
 [features]
 default         = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
