@@ -2,8 +2,10 @@
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import AppTopbar from '@/components/layout/AppTopbar.vue'
 import CommandPalette from '@/components/ui/CommandPalette.vue'
+import { useSettingsStore } from '@/stores/settings'
 import { ref, onMounted, onUnmounted } from 'vue'
 
+const settingsStore = useSettingsStore()
 const commandPaletteOpen = ref(false)
 
 function handleKeydown(e: KeyboardEvent) {
@@ -16,7 +18,10 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', handleKeydown))
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+  settingsStore.initTheme()
+})
 onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 </script>
 
@@ -32,3 +37,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
     <CommandPalette v-model:open="commandPaletteOpen" />
   </div>
 </template>
+
+<style>
+html.light {
+  --color-surface: #ffffff;
+  --color-surface-alt: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-text: #1e293b;
+  --color-muted: #64748b;
+}
+</style>

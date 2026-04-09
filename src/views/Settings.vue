@@ -50,6 +50,32 @@ function formatTimestamp(ts: unknown): string {
 
     <p v-if="store.error" class="text-danger text-sm">{{ store.error }}</p>
 
+    <!-- Theme Toggle -->
+    <section class="rounded-lg bg-surface-alt border border-border p-6 space-y-3">
+      <h2 class="text-lg font-semibold">Appearance</h2>
+      <div class="flex items-center gap-4">
+        <span class="text-sm text-muted">Theme</span>
+        <button
+          class="px-4 py-2 rounded-md text-sm font-medium border transition-colors"
+          :class="store.theme === 'dark'
+            ? 'bg-primary/20 text-primary border-primary/50'
+            : 'bg-surface border-border text-muted hover:text-gray-200'"
+          @click="store.theme !== 'dark' && store.toggleTheme()"
+        >
+          Dark
+        </button>
+        <button
+          class="px-4 py-2 rounded-md text-sm font-medium border transition-colors"
+          :class="store.theme === 'light'
+            ? 'bg-primary/20 text-primary border-primary/50'
+            : 'bg-surface border-border text-muted hover:text-gray-200'"
+          @click="store.theme !== 'light' && store.toggleTheme()"
+        >
+          Light
+        </button>
+      </div>
+    </section>
+
     <!-- Configuration -->
     <section class="rounded-lg bg-surface-alt border border-border p-6 space-y-5">
       <h2 class="text-lg font-semibold">Configuration</h2>
