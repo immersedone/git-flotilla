@@ -1,5 +1,15 @@
 import { invoke } from '@tauri-apps/api/core'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import type { BatchOperation, CreateOperationInput, ValidateResult } from '@/types/operation'
+
+export interface OperationProgressEvent {
+  operationId: string
+  repoId: string
+  status: string
+  current: number
+  total: number
+  error: string | null
+}
 
 export function createOperation(input: CreateOperationInput): Promise<BatchOperation> {
   return invoke('create_operation', { input })
@@ -31,4 +41,12 @@ export function validateOperation(
 
 export function rollbackOperation(id: string): Promise<void> {
   return invoke('rollback_operation', { id })
+}
+
+export function onOperationProgress(
+  callback: (event: OperationProgressEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<OperationProgressEvent>('operation-progress', (event) => {
+    callback(event.payload)
+  })
 }
