@@ -180,7 +180,10 @@ pub async fn run_script(
         "INSERT INTO audit_log (id, action_type, repo_ids, outcome, detail)
          VALUES (lower(hex(randomblob(16))), 'script_run', ?, 'completed', ?)",
     )
-    .bind(serde_json::to_string(&results.iter().map(|r| &r.repo_id).collect::<Vec<_>>()).unwrap_or_default())
+    .bind(
+        serde_json::to_string(&results.iter().map(|r| &r.repo_id).collect::<Vec<_>>())
+            .unwrap_or_default(),
+    )
     .bind(&command)
     .execute(pool)
     .await;
@@ -200,14 +203,27 @@ pub async fn abort_script() -> AppResult<()> {
 pub async fn list_presets() -> AppResult<Vec<ScriptPreset>> {
     let pool = db::pool()?;
 
-    let rows = sqlx::query_as!(
-        ScriptPreset,
-        "SELECT id, name, command, description, created_at FROM script_presets ORDER BY created_at DESC"
+    let rows = sqlx::query(
+        "SELECT id, name, command, description, created_at FROM script_presets ORDER BY created_at DESC",
     )
     .fetch_all(pool)
     .await?;
 
-    Ok(rows)
+    let presets = rows
+        .into_iter()
+        .map(|row| {
+            use sqlx::Row;
+            ScriptPreset {
+                id: row.get("id"),
+                name: row.get("name"),
+                command: row.get("command"),
+                description: row.get("description"),
+                created_at: row.get("created_at"),
+            }
+        })
+        .collect();
+
+    Ok(presets)
 }
 
 /// Save a new script preset.
@@ -218,7 +234,9 @@ pub async fn save_preset(
     description: String,
 ) -> AppResult<ScriptPreset> {
     if name.trim().is_empty() {
-        return Err(AppError::InvalidInput("Preset name must not be empty".into()));
+        return Err(AppError::InvalidInput(
+            "Preset name must not be empty".into(),
+        ));
     }
     if command.trim().is_empty() {
         return Err(AppError::InvalidInput(
@@ -228,19 +246,25 @@ pub async fn save_preset(
 
     let pool = db::pool()?;
 
-    let preset = sqlx::query_as!(
-        ScriptPreset,
+    let row = sqlx::query(
         r#"INSERT INTO script_presets (id, name, command, description)
            VALUES (lower(hex(randomblob(16))), ?, ?, ?)
            RETURNING id, name, command, description, created_at"#,
-        name,
-        command,
-        description,
     )
+    .bind(&name)
+    .bind(&command)
+    .bind(&description)
     .fetch_one(pool)
     .await?;
 
-    Ok(preset)
+    use sqlx::Row;
+    Ok(ScriptPreset {
+        id: row.get("id"),
+        name: row.get("name"),
+        command: row.get("command"),
+        description: row.get("description"),
+        created_at: row.get("created_at"),
+    })
 }
 
 /// Delete a script preset by ID.
@@ -276,8 +300,14 @@ mod tests {
             created_at: "2026-01-01T00:00:00".into(),
         };
         let json = serde_json::to_value(&preset).expect("serialize");
-        assert!(json.get("createdAt").is_some(), "should have camelCase key createdAt");
-        assert!(json.get("created_at").is_none(), "should not have snake_case key");
+        assert!(
+            json.get("createdAt").is_some(),
+            "should have camelCase key createdAt"
+        );
+        assert!(
+            json.get("created_at").is_none(),
+            "should not have snake_case key"
+        );
     }
 
     #[test]
@@ -291,8 +321,14 @@ mod tests {
         };
         let json = serde_json::to_value(&result).expect("serialize");
         assert!(json.get("repoId").is_some(), "should have camelCase repoId");
-        assert!(json.get("exitCode").is_some(), "should have camelCase exitCode");
-        assert!(json.get("durationMs").is_some(), "should have camelCase durationMs");
+        assert!(
+            json.get("exitCode").is_some(),
+            "should have camelCase exitCode"
+        );
+        assert!(
+            json.get("durationMs").is_some(),
+            "should have camelCase durationMs"
+        );
         assert!(json.get("repo_id").is_none(), "should not have snake_case");
     }
 }
