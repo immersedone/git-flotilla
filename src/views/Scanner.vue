@@ -72,8 +72,10 @@ function severityDot(severity: string): string {
   switch (severity) {
     case 'critical': return 'bg-red-500'
     case 'high': return 'bg-orange-500'
-    case 'medium': return 'bg-amber-500'
+    case 'medium':
+    case 'warning': return 'bg-amber-500'
     case 'low': return 'bg-blue-500'
+    case 'info': return 'bg-blue-400'
     default: return 'bg-gray-500'
   }
 }

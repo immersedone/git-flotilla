@@ -129,6 +129,9 @@ pub async fn scan_repo(repo_id: String) -> AppResult<ScanResult> {
     if let Some(snapshot) = rl {
         rate_limiter::update_github(snapshot);
     }
+    if tree.truncated {
+        tracing::warn!("Tree for {repo_id} was truncated — scan results may be incomplete");
+    }
 
     // 6-8. Discover manifests, workflows, detect package manager from tree
     let manifest_paths = discover_manifests(&tree);

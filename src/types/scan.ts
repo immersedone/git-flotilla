@@ -1,7 +1,7 @@
 export interface ScanFlag {
   flagType: string
   message: string
-  severity: 'critical' | 'high' | 'medium' | 'low' | 'info'
+  severity: 'critical' | 'high' | 'medium' | 'warning' | 'low' | 'info'
 }
 
 export interface ScanResult {
