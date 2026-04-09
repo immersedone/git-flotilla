@@ -93,6 +93,7 @@ fn main() {
             git_flotilla::commands::settings::get_settings,
             git_flotilla::commands::settings::save_settings,
             git_flotilla::commands::settings::get_rate_limit_status,
+            git_flotilla::commands::settings::list_audit_log,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Git Flotilla");
